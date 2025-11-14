@@ -123,7 +123,7 @@ class Curve:
     def curvature_profile(self) -> List[float]:
         """
         Restituisce una lista kappa[k] (stessa lunghezza di x/y)
-        calcolando il raggio basandosi su 3 punti:
+        calcolando il raggio di un cerchio passante su 3 punti:
         P1 = (x[k-1], y[k-1]), P2 = (x[k], y[k]), P3 = (x[k+1], y[k+1])
         """
         n = len(self.x)
@@ -164,8 +164,8 @@ class Curve:
 
     def curvature_mean(self) -> float:
         """
-        Faccio una media integrale essendo che le curveture non sono sempre equi diistanti 
-        ogni curvatoura e oresa su un intervallo di spazio diverso
+        Faccio una media integrale essendo che le curvature non sono sempre equi distanti 
+        ogni curvatura è calcolata su un intervallo di spazio diverso
         """
         kappa = self.curvature_profile()
         n = len(kappa)
