@@ -2,6 +2,7 @@ import math
 from typing import List
 import numpy as np
 import matplotlib.pyplot as plt
+from utils.utils_for_array import find_frist_value
 
 class Curve:
     def __init__(
@@ -40,6 +41,7 @@ class Curve:
         self.y = y
         self.z = z
 
+
     def _normalize_pedal(self, pedal: List[float]) -> List[float]:
         """
         Porta throttle / brake a ~[0,1].
@@ -57,18 +59,26 @@ class Curve:
     def print(self):
         print(f"[!] apex:{self.apex_dist}; start: {self.distance[0]} -> end: {self.distance[-1]}")
 
-    # --- Tempo & distanza ---
+
+    #########################################################
+    #                   Metrice semplici                    #
+    #########################################################
+
+    # --- tempo ---
     def time_in_curve(self) -> float:
         return self.time[-1] - self.time[0] 
 
+    # --- distanza ---
     def distance_in_curve(self) -> float:
         return self.distance[-1] - self.distance[0] 
 
+     # --- velocità ---
     def speed_average(self) -> float:
         return sum(self.speed) / len(self.speed) 
 
     def entry_speed_average(self, fraction: float = 0.10) -> float:
         amount = max(1, int(len(self.speed) * fraction))
+        find_frist_value()
         entry_speeds = self.speed[:amount]
         return sum(entry_speeds) / len(entry_speeds) 
 
@@ -119,7 +129,11 @@ class Curve:
         return max(self.rpm) 
 
 
-    # --- Traiettoria: curvatura a 3 punti ---
+    #########################################################
+    #                Metrice più complesse                  #
+    #########################################################
+
+
     def curvature_profile(self) -> List[float]:
         """
         Restituisce una lista kappa[k] (stessa lunghezza di x/y)
@@ -132,10 +146,11 @@ class Curve:
 
         kappa = [0.0] * n  
 
-        for k in range(1, n - 1):
-            x1, y1 = self.x[k - 1], self.y[k - 1]
+        # 3 poiché punti troppo vicini una piccola varianzione puo creare dei spike nel grafico
+        for k in range(5, n - 5):
+            x1, y1 = self.x[k - 5], self.y[k - 5]
             x2, y2 = self.x[k],     self.y[k]
-            x3, y3 = self.x[k + 1], self.y[k + 1]
+            x3, y3 = self.x[k + 5], self.y[k + 5]
 
             a = math.hypot(x3 - x2, y3 - y2)
             b = math.hypot(x3 - x1, y3 - y1)
@@ -257,122 +272,138 @@ class Curve:
     def fluidity(self) -> float:
         """
         Fluidità dei comandi:
-        più throttle, brake e acc_x sono stabili (bassa varianza),
-        più la fluidità è alta.
-
-        brake è 0/1 -> lo prendiamo così com'è.
+        misura quanto throttle e acc_x sono "smooth".
+        Restituisce un punteggio tra ~0 e 1:
+        - vicino a 1 -> molto fluido
+        - vicino a 0 -> molto sporco
         """
-        if not self.throttle or not self.brake or not self.acc_x:
+        if not self.throttle or not self.acc_x:
             return 0.0
 
         thr = np.asarray(self._normalize_pedal(self.throttle), dtype=float)
-        brk = np.asarray(self.brake, dtype=float)      
         ax  = np.asarray(self.acc_x, dtype=float)
 
-    
-        n = min(len(thr), len(brk), len(ax))
-        if n == 0:
+        n = min(len(thr), len(ax))
+        if n < 2:
             return 0.0
 
         thr = thr[:n]
-        brk = brk[:n]
         ax  = ax[:n]
 
+        # normalizza acc_x per non farlo dominare ([-1, 1] circa)
+        ax_abs_max = float(np.max(np.abs(ax))) if np.max(np.abs(ax)) > 0 else 1.0
+        ax_norm = ax / ax_abs_max
+
         var_thr = float(np.var(thr))
-        var_brk = float(np.var(brk))
-        var_ax  = float(np.var(ax))
+        var_ax  = float(np.var(ax_norm))
 
-        mean_var = (var_thr + var_brk + var_ax) / 3.0
+        mean_var = (var_thr + var_ax) / 2.0
+       
+        fluidity_score = 1.0 / (1.0 + mean_var)
+
+        return fluidity_score
+
+
+
+    def efficiency(self, fraction: float = 0.10) -> float:
+        """
+        Efficienza accelerativa:
+        (v_out^2 - v_in^2) / dt_curva
+
+        Misura quanto il pilota aumenta l’energia cinetica durante la curva,
+        calcolando la variazione di v² (proporzionale alla variazione di energia)
+        divisa per il tempo di percorrenza. In pratica indica quanto bene il
+        pilota esce dalla curva: valori alti = accelerazione efficace.
+
+        v_in e v_out sono stimati come media delle velocità iniziali/finali
+        per rendere la metrica robusta al rumore.
+
+        """
+        dt = self.time_in_curve()
+        if dt <= 0 or not self.speed:
+            return 0.0
+
+        spd = np.asarray(self.speed, dtype=float)
+        n = len(spd)
+        amount = max(1, int(n * fraction))
+
+        v_in  = float(spd[:amount].mean())
+        v_out = float(spd[-amount:].mean())
+
+        return (v_out**2 - v_in**2) / dt
+
+
+    def stability(self) -> float:
+        """
+        Stabilità laterale:
+        std(|acc_y|) / max(|acc_y|)
+
+        Misura quanto la forza laterale oscilla rispetto al suo livello massimo(normalizzata per max(|acc_y|)).
+        La normalizzazione con max(|acc_y|) rende il valore comparabile tra curve
+        di intensità diversa: a parità di oscillazioni, una curva dolce è meno
+        stabile di una curva stretta. Valori bassi = curva fluida e stabile.
+        """
+        if not self.acc_y:
+            return 0.0
+
+        ay = np.asarray(self.acc_y, dtype=float)
+        ay_abs = np.abs(ay)
+
+        ay_max = float(ay_abs.max())
+        if ay_max <= 0:
+            return 0.0
+
+        std_ay = float(ay_abs.std())   # np.std
+
+        return std_ay / ay_max
+
+    #########################################################
+    #                 Calcolo Stile di guida                #
+    #########################################################
+
+    @staticmethod
+    def classify_driver_style(curve: "Curve") -> str:
+        stability       = curve.stability()
+        aggressiveness  = curve.aggressiveness()
+        fluidity        = curve.fluidity()           # supponiamo già "aggiustata"
+        energy_in       = curve.energy_input()
+        energy_loss     = curve.energy_lost_brake()
+        efficiency      = curve.efficiency()
+
+        # per evitare problemi di divisione per zero
         eps = 1e-6
-        return 1.0 / (mean_var + eps)                   # Più i tre segnali oscillano, più la varianza cresce → 1/(var) scende → fluidità bassa
+        energy_in_safe = energy_in if abs(energy_in) > eps else eps
+        brake_ratio = energy_loss / energy_in_safe  # quanta energia butti via in frenata, è una probabilità quanta energia perso sul totale che avevo
+
+        # 1) OVERDRIVE: tanto instabile + molto aggressivo + efficienza negativa
+        if stability > 0.38 and aggressiveness > 18 and efficiency < 0 and brake_ratio > 0.8:
+            return "overdrive"
+
+        # 2) SPORCO / INSTABILE: instabilità alta o fluidità molto bassa
+        if stability > 0.30 or fluidity < 0.3:
+            return "sporco / instabile"
+
+        # 3) AGGRESSIVO: freni forte o butti via tanta energia in frenata
+        if aggressiveness > 15 or brake_ratio > 0.6:
+            return "aggressivo"
+
+        # 4) FLUIDO: stabile, fluido, non troppo aggressivo
+        if stability < 0.22 and fluidity > 0.6 and aggressiveness < 12:
+            return "fluido"
+
+        # 5) CONSERVATIVO: spinge poco e non è aggressivo
+        if energy_in < 0.4 * energy_loss and aggressiveness < 8 and efficiency >= 0:
+            return "conservativo"
+
+        # 6) NEUTRO
+        return "neutro"
 
 
 
 
-    # def efficiency(self, fraction: float = 0.10) -> float:
-    #     """
-    #     Efficienza accelerativa:
-    #     (v_out^2 - v_in^2) / dt_curva
-
-    #     v_in e v_out stimati come media sugli ultimi/primissimi 'fraction' punti.
-    #     """
-    #     dt = self.time_in_curve()
-    #     if dt <= 0 or not self.speed:
-    #         return 0.0
-
-    #     spd = np.asarray(self.speed, dtype=float)
-    #     n = len(spd)
-    #     amount = max(1, int(n * fraction))
-
-    #     v_in  = float(spd[:amount].mean())
-    #     v_out = float(spd[-amount:].mean())
-
-    #     return (v_out**2 - v_in**2) / dt
-
-
-    # def stability(self) -> float:
-    #     """
-    #     Stabilità laterale:
-    #     std(|acc_y|) / max(|acc_y|)
-
-    #     Più il rapporto è piccolo → curva "pulita" e stabile.
-    #     """
-    #     if not self.acc_y:
-    #         return 0.0
-
-    #     ay = np.asarray(self.acc_y, dtype=float)
-    #     ay_abs = np.abs(ay)
-
-    #     ay_max = float(ay_abs.max())
-    #     if ay_max <= 0:
-    #         return 0.0
-
-    #     std_ay = float(ay_abs.std())   # np.std
-
-    #     return std_ay / ay_max
-
-    def plot_controls(self, use_time: bool = False) -> None:
-        """
-        Grafico combinato:
-        - Velocità
-        - Throttle normalizzato
-        - Brake
-
-        Se use_time = False -> asse X = distanza
-        Se use_time = True  -> asse X = tempo
-        """
-        if not self.time or not self.distance or not self.speed:
-            print("[plot_controls] Dati insufficienti.")
-            return
-
-        x_label = "Tempo [s]" if use_time else "Distanza [m]"
-        x = np.array(self.time if use_time else self.distance, dtype=float)
-
-        spd = np.array(self.speed, dtype=float)
-        thr = np.array(self._normalize_pedal(self.throttle), dtype=float)
-        brk = np.array(self.brake, dtype=float)
-
-        fig, ax1 = plt.subplots()
-
-        # Asse principale: velocità
-        ax1.plot(x, spd, label="Speed", linewidth=2)
-        ax1.set_xlabel(x_label)
-        ax1.set_ylabel("Velocità", color="black")
-
-        # Asse secondario: pedali
-        ax2 = ax1.twinx()
-        ax2.plot(x, thr, linestyle="--", label="Throttle (norm)")
-        ax2.plot(x, brk, linestyle=":", label="Brake")
-        ax2.set_ylabel("Pedali (0–1)", color="black")
-
-        # Legenda combinata
-        lines1, labels1 = ax1.get_legend_handles_labels()
-        lines2, labels2 = ax2.get_legend_handles_labels()
-        ax1.legend(lines1 + lines2, labels1 + labels2, loc="best")
-
-        plt.title(f"Corner {self.corner_id} – Speed / Throttle / Brake")
-        plt.tight_layout()
-        plt.show()
+    #########################################################
+    #                   Grafici Per Curva                   #
+    #########################################################
 
     def plot_trajectory_speed(self) -> None:
         """
@@ -417,25 +448,292 @@ class Curve:
         plt.tight_layout()
         plt.show()
 
-    def plot_gg_diagram(self) -> None:
+
+    def plot_stability_profile(self, use_time: bool = False) -> None:
         """
-        G-G diagram locale alla curva: acc_x vs acc_y.
-        Serve a vedere come usi il grip (longitudinale vs laterale).
+        Profilo di stabilità laterale:
+        |acc_y| lungo la curva, con media e ±1 deviazione standard.
+
+        Utile per vedere se la curva è "pulita" o se ci sono oscillazioni
+        evidenti della forza laterale.
         """
-        if not self.acc_x or not self.acc_y:
-            print("[plot_gg_diagram] Dati insufficienti.")
+        if not self.acc_y or not self.distance or not self.time:
+            print("[plot_stability_profile] Dati insufficienti.")
             return
 
-        ax = np.array(self.acc_x, dtype=float)
-        ay = np.array(self.acc_y, dtype=float)
+        ay = np.asarray(self.acc_y, dtype=float)
+        ay_abs = np.abs(ay)
+
+        mean_ay = float(ay_abs.mean())
+        std_ay = float(ay_abs.std())
+
+        x = np.asarray(self.time if use_time else self.distance, dtype=float)
+        x_label = "Tempo [s]" if use_time else "Distanza [m]"
+
+        stab = self.stability()
 
         plt.figure()
-        plt.scatter(ax, ay, s=8)
-        plt.axhline(0.0, linewidth=0.5)
-        plt.axvline(0.0, linewidth=0.5)
-        plt.xlabel("acc_x [m/s²] (longitudinale)")
-        plt.ylabel("acc_y [m/s²] (laterale)")
-        plt.title(f"Corner {self.corner_id} – G-G diagram")
-        plt.axis("equal")
+        plt.plot(x, ay_abs, label="|acc_y|", linewidth=1.5)
+        plt.axhline(mean_ay, linestyle="--", label="media |acc_y|")
+        plt.axhline(mean_ay + std_ay, linestyle=":", label="media + σ")
+        plt.axhline(mean_ay - std_ay, linestyle=":", label="media - σ")
+
+        plt.xlabel(x_label)
+        plt.ylabel("|acc_y| [m/s²]")
+        plt.title(
+            f"Corner {self.corner_id} – Profilo stabilità laterale\n"
+            f"stability = std(|acc_y|)/max(|acc_y|) = {stab:.3f}"
+        )
+        plt.legend(loc="best")
+        plt.tight_layout()
+        plt.show()
+
+
+    def plot_efficiency_profile(self, fraction: float = 0.10, use_time: bool = False) -> None:
+        """
+        Profilo di efficienza accelerativa:
+        mostra la velocità lungo la curva e i segmenti usati per stimare
+        v_in e v_out nella metrica di efficienza.
+        """
+        if not self.speed or not self.distance or not self.time:
+            print("[plot_efficiency_profile] Dati insufficienti.")
+            return
+
+        spd = np.asarray(self.speed, dtype=float)
+        n = len(spd)
+        amount = max(1, int(n * fraction))
+
+        # segmenti ingresso/uscita usati per v_in / v_out
+        idx_in_end = amount
+        idx_out_start = n - amount
+
+        v_in = float(spd[:amount].mean())
+        v_out = float(spd[-amount:].mean())
+        eff = self.efficiency(fraction=fraction)
+
+        x = np.asarray(self.time if use_time else self.distance, dtype=float)
+        x_label = "Tempo [s]" if use_time else "Distanza [m]"
+
+        plt.figure()
+        plt.plot(x, spd, label="Speed", linewidth=2)
+
+        # evidenzia i segmenti di ingresso/uscita usati per la metrica
+        plt.axvspan(x[0], x[idx_in_end-1], alpha=0.2, label="zona v_in")
+        plt.axvspan(x[idx_out_start], x[-1], alpha=0.2, label="zona v_out")
+
+        # linee orizzontali per v_in e v_out
+        plt.axhline(v_in, linestyle="--", label=f"v_in ≈ {v_in:.1f}")
+        plt.axhline(v_out, linestyle=":", label=f"v_out ≈ {v_out:.1f}")
+
+        plt.xlabel(x_label)
+        plt.ylabel("Velocità [unità]")
+        plt.title(
+            f"Corner {self.corner_id} – Profilo efficienza accelerativa\n"
+            f"efficiency = (v_out² - v_in²)/dt = {eff:.3f}"
+        )
+        plt.legend(loc="best")
+        plt.tight_layout()
+        plt.show()
+
+    def plot_energy_input_profile(self, use_time: bool = False) -> None:
+        """
+        Profilo di energy_input:
+        mostra l'andamento locale di throttle*speed (≈ “potenza motore”)
+        e l'area complessiva corrisponde alla metrica energy_input().
+        """
+        thr = np.asarray(self._normalize_pedal(self.throttle), dtype=float)
+        spd = np.asarray(self.speed, dtype=float)
+        t   = np.asarray(self.time, dtype=float)
+        dist = np.asarray(self.distance, dtype=float)
+
+        if len(t) < 2 or len(thr) != len(t) or len(spd) != len(t):
+            print("[plot_energy_input_profile] Dati insufficienti.")
+            return
+
+        dt = np.diff(t)
+        if np.any(dt <= 0):
+            print("[plot_energy_input_profile] dt non valido.")
+            return
+
+        # integrando locale: throttle * speed * dt
+        power_like = thr[1:] * spd[1:]          # parte “istantanea”
+        x_mid_time  = 0.5 * (t[1:] + t[:-1])
+        x_mid_dist  = 0.5 * (dist[1:] + dist[:-1])
+        x = x_mid_time if use_time else x_mid_dist
+        x_label = "Tempo [s]" if use_time else "Distanza [m]"
+
+        E_in = self.energy_input()
+
+        plt.figure()
+        plt.plot(x, power_like, label="thr * speed", linewidth=1.8)
+        plt.fill_between(x, 0.0, power_like, alpha=0.2)
+
+        plt.xlabel(x_label)
+        plt.ylabel("thr * speed [unità arbitrarie]")
+        plt.title(
+            f"Corner {self.corner_id} – Profilo energy_input\n"
+            f"∫ thr*speed dt ≈ {E_in:.3f}"
+        )
+        plt.legend(loc="best")
+        plt.tight_layout()
+        plt.show()
+
+
+    def plot_energy_lost_brake_profile(self, use_time: bool = False) -> None:
+        """
+        Profilo di energy_lost_brake:
+        mostra l'andamento locale di brake * (-acc_x_negativa)
+        (≈ “potenza persa in frenata”) e l'area totale è la metrica
+        energy_lost_brake().
+        """
+        ax  = np.asarray(self.acc_x, dtype=float)
+        brk = np.asarray(self.brake, dtype=float)
+        t   = np.asarray(self.time, dtype=float)
+        dist = np.asarray(self.distance, dtype=float)
+
+        if len(t) < 2 or len(brk) != len(t) or len(ax) != len(t):
+            print("[plot_energy_lost_brake_profile] Dati insufficienti.")
+            return
+
+        dt = np.diff(t)
+        if np.any(dt <= 0):
+            print("[plot_energy_lost_brake_profile] dt non valido.")
+            return
+
+        dec = np.maximum(-ax, 0.0)             # solo decelerazione
+        loss_inst = brk[1:] * dec[1:]          # parte “istantanea”
+        x_mid_time  = 0.5 * (t[1:] + t[:-1])
+        x_mid_dist  = 0.5 * (dist[1:] + dist[:-1])
+        x = x_mid_time if use_time else x_mid_dist
+        x_label = "Tempo [s]" if use_time else "Distanza [m]"
+
+        E_loss = self.energy_lost_brake()
+
+        plt.figure()
+        plt.plot(x, loss_inst, label="brake * dec", linewidth=1.8)
+        plt.fill_between(x, 0.0, loss_inst, alpha=0.2)
+
+        plt.xlabel(x_label)
+        plt.ylabel("brake * dec [unità arbitrarie]")
+        plt.title(
+            f"Corner {self.corner_id} – Profilo energy_lost_brake\n"
+            f"∫ brake * (-acc_x) dt ≈ {E_loss:.3f}"
+        )
+        plt.legend(loc="best")
+        plt.tight_layout()
+        plt.show()
+
+
+    def plot_aggressiveness_profile(self, use_time: bool = False) -> None:
+        """
+        Profilo di aggressività:
+        - throttle normalizzato
+        - derivata d(throttle)/dt
+        - evidenzia il picco di decelerazione e il max |dthr/dt|
+
+        Nel titolo viene riportata la metrica aggressiveness().
+        """
+        if not self.time or not self.throttle or not self.acc_x:
+            print("[plot_aggressiveness_profile] Dati insufficienti.")
+            return
+
+        t   = np.asarray(self.time, dtype=float)
+        dist = np.asarray(self.distance, dtype=float)
+        thr = np.asarray(self._normalize_pedal(self.throttle), dtype=float)
+        ax  = np.asarray(self.acc_x, dtype=float)
+
+        if len(t) < 2 or len(thr) != len(t) or len(ax) != len(t):
+            print("[plot_aggressiveness_profile] Dati insufficienti (dimensioni).")
+            return
+
+        # derivata del gas
+        dt = np.diff(t)
+        if np.any(dt <= 0):
+            print("[plot_aggressiveness_profile] dt non valido.")
+            return
+        dthr_dt = np.diff(thr) / dt
+        x_mid_time  = 0.5 * (t[1:] + t[:-1])
+        x_mid_dist  = 0.5 * (dist[1:] + dist[:-1])
+        x = x_mid_time if use_time else x_mid_dist
+        x_label = "Tempo [s]" if use_time else "Distanza [m]"
+
+        max_dthr = float(np.max(np.abs(dthr_dt))) if len(dthr_dt) > 0 else 0.0
+        ax_min   = float(np.min(ax))
+        dec_peak = max(-ax_min, 0.0)
+        agg_val  = self.aggressiveness()
+
+        fig, ax1 = plt.subplots()
+
+        # throttle
+        x_full = t if use_time else dist
+        ax1.plot(x_full, thr, label="Throttle (norm)", linewidth=1.5)
+        ax1.set_xlabel(x_label)
+        ax1.set_ylabel("Throttle (0–1)", color="black")
+
+        # derivata throttle
+        ax2 = ax1.twinx()
+        ax2.plot(x, dthr_dt, linestyle="--", label="d(thr)/dt")
+        ax2.set_ylabel("d(throttle)/dt [1/s]", color="black")
+
+        # legende combinate
+        l1, lab1 = ax1.get_legend_handles_labels()
+        l2, lab2 = ax2.get_legend_handles_labels()
+        ax1.legend(l1 + l2, lab1 + lab2, loc="best")
+
+        plt.title(
+            f"Corner {self.corner_id} – Profilo aggressiveness\n"
+            f"dec_peak = {dec_peak:.2f}, max|dthr/dt| = {max_dthr:.2f}, "
+            f"aggressiveness = {agg_val:.3f}"
+        )
+        plt.tight_layout()
+        plt.show()
+
+
+    def plot_fluidity_profile(self, use_time: bool = False) -> None:
+        """
+        Profilo di fluidità:
+        mostra throttle, brake e acc_x (scalato) sulla stessa X.
+        Serve a vedere visivamente quanto i segnali sono “smooth” o seghettati.
+        Nel titolo compare la metrica fluidity().
+        """
+        if not self.time or not self.throttle or not self.brake or not self.acc_x:
+            print("[plot_fluidity_profile] Dati insufficienti.")
+            return
+
+        t    = np.asarray(self.time, dtype=float)
+        dist = np.asarray(self.distance, dtype=float)
+        thr  = np.asarray(self._normalize_pedal(self.throttle), dtype=float)
+        ax   = np.asarray(self.acc_x, dtype=float)
+
+        n = min(len(t), len(thr), len(ax))
+        if n < 2:
+            print("[plot_fluidity_profile] Troppi pochi punti.")
+            return
+
+        t    = t[:n]
+        dist = dist[:n]
+        thr  = thr[:n]
+        ax   = ax[:n]
+
+        # scalare acc_x nello stesso range (circa) dei pedali
+        ax_abs_max = float(np.max(np.abs(ax))) if np.max(np.abs(ax)) > 0 else 1.0
+        ax_scaled = 0.5 + 0.5 * (ax / ax_abs_max)   # porta in ~[0,1]
+
+        x = t if use_time else dist
+        x_label = "Tempo [s]" if use_time else "Distanza [m]"
+
+        flu = self.fluidity()
+
+        plt.figure()
+        plt.plot(x, thr, label="Throttle (norm)", linewidth=1.5)
+        plt.plot(x, ax_scaled, label="acc_x (scalato)", linestyle=":")
+
+        plt.xlabel(x_label)
+        plt.ylabel("Valore normalizzato")
+        plt.title(
+            f"Corner {self.corner_id} – Profilo fluidity\n"
+            f"fluidity = {flu:.3f} (1/var(thr,acc_x))"
+        )
+        plt.legend(loc="best")
         plt.tight_layout()
         plt.show()

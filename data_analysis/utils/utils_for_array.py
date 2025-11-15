@@ -1,21 +1,28 @@
-# ------------------------------------------------- utilità -------------------------------------------------
+import numpy as np
+
+
 def avg_in_window(arr, i, win):
     start = max(0, i - win)
     end = min(len(arr), i + win + 1)
     vals = [abs(a) for a in arr[start:end]]
     return sum(vals) / len(vals)
 
-def find_frist_value(dist_array, value):
-    #primo indice dove distance >= value
-    for i, d in enumerate(dist_array):
+def find_frist_value(array, value):
+    #primo indice dove array[i] >= value
+    for i, d in enumerate(array):
         if d >= value:
             return i
-    return len(dist_array) - 1
+    return len(array) - 1
 
-def find_last_value(dist_array, value):
-    #ultimo indice dove distance <= value
+def find_closest_value(array, value):
+    array = np.asarray(array)
+    return np.abs(array - value).argmin()
+
+
+def find_last_value(array, value):
+    #ultimo indice dove array[i] <= value
     last = 0
-    for i, d in enumerate(dist_array):
+    for i, d in enumerate(array):
         if d <= value:
             last = i
         else:
