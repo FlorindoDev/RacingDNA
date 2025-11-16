@@ -79,12 +79,35 @@ class Curve:
     def entry_speed_average(self) -> float:
         apex_pilot_idx = find_closest_value(self.distance, self.apex_dist)
         entry_speeds = self.speed[:apex_pilot_idx]
-        return sum(entry_speeds) / len(entry_speeds) 
+        if len(entry_speeds)  != 0:
+            return sum(entry_speeds) / len(entry_speeds) 
+        else:
+            return 0
 
     def exit_speed_average(self) -> float:
         apex_pilot_idx = find_closest_value(self.distance, self.apex_dist)
         exit_speeds = self.speed[apex_pilot_idx:]
-        return sum(exit_speeds) / len(exit_speeds) 
+        if len(exit_speeds)  != 0:
+            return sum(exit_speeds) / len(exit_speeds)
+        else:
+            return 0 
+    
+    
+    def exit_throttle_avg(self):
+        apex_idx = find_closest_value(self.distance, self.apex_dist)
+
+        # normalizziamo il pedale gas in [0,1]
+        thr = self._normalize_pedal(self.throttle)
+
+        if thr and apex_idx < len(thr):
+            post_apex = thr[apex_idx:]
+            if post_apex:
+                throttle_post_avg = sum(post_apex) / len(post_apex)
+            else:
+                throttle_post_avg = 0.0
+        else:
+            throttle_post_avg = 0.0
+        return  throttle_post_avg
     
     def apex_speed(self) -> float:
         return min(self.speed) 
@@ -246,103 +269,98 @@ class Curve:
  
     def aggressiveness(self) -> float:
         """
-        Misura l'aggressività nella curva combinando:
-        - picco di decelerazione in frenata (acc_x_min)
-        - bruschezza del gas (max derivata del throttle).
+        Ritorna un valore in [0,1] che rappresenta l'aggressività del pilota nella curva.
 
-        brake è binario (0/1), quindi l'intensità della frenata
-        la leggiamo da acc_x, non dal valore del pedale.
+        Componenti:
+        - Frenata aggressiva     (decelerazione longitudinale)
+        - Apertura gas dopo l’apice
         """
 
-        thr = self._normalize_pedal(self.throttle)
-
-        if not self.time or not thr:
+        if not self.time:
             return 0.0
 
-        t  = np.asarray(self.time, float)
-        ax = np.asarray(self.acc_x, float)
-
-        dec_peak = max(-np.min(ax), 0.0)   
-
-   
-        dthr_dt = np.diff(thr) / np.diff(t)
-        dt      = np.diff(t)
-
-        if len(dthr_dt) == 0:
-            return 0.0
-
-        abs_d = np.abs(dthr_dt)
-
-       
-        max_d = float(abs_d.max())
-        if max_d < 1e-6:
-            mean_abs_d = 0.0
+        
+        MAX_DECEL = 49.0     # m/s²  (forza longitudinale massima)
+        W_BRAKE = 1
+        W_GAS   = 2
+        
+        if self.acc_x:
+            min_acc = min(self.acc_x)             
+            decel = abs(min_acc)                  
+            brake_aggr = min(decel / MAX_DECEL, 1.0)
         else:
-            # prendo i punti con derivata almeno al 20% del massimo di quella curva
-            DERIV_REL = 0.2  
-            thr_val = DERIV_REL * max_d
+            brake_aggr = 0.0
 
-            abs_d_filtered = abs_d[abs_d >= thr_val]
-            dt_filtered    = dt[abs_d >= thr_val]
+    
 
-            # se per qualche motivo rimane vuoto, fallback alla media normale
-            if len(abs_d_filtered) == 0:
-                mean_abs_d = float(np.sum(abs_d * dt) / (t[-1] - t[0]))
-            else:
-                mean_abs_d = float(np.sum(abs_d_filtered * dt_filtered) / np.sum(dt_filtered))
+        gas_aggr = self.exit_throttle_avg()  
 
-   
-        DEC_MAX = 60.0
-        dec_norm = min(dec_peak / DEC_MAX, 1.0)
+        
+        score = (
+            W_BRAKE * brake_aggr +
+            W_GAS   * gas_aggr
+        ) / (W_BRAKE  + W_GAS)
 
-        # da tarare con dati reali questo perchè il tempo di risposta biologiva massimo di 0,2 quindi 1/0,2 = 5 
-        # quindi la derivata del intervallo massimo dell accleatore fratto il tempo minimo di reazione
-        MEAN_D_MAX = 2
-        gas_norm = min(mean_abs_d / MEAN_D_MAX, 1.0)
-
-        # Aggressività combinata o solo gas se non freni
-        if dec_norm != 0:
-            aggr_norm = dec_norm * gas_norm
-        else:
-            aggr_norm = gas_norm
-
-        return aggr_norm
+        return max(0.0, min(1.0, score))
 
 
     def fluidity(self) -> float:
         """
-        Fluidità dei comandi:
-        misura quanto throttle e acc_x sono "smooth".
-        Restituisce un punteggio tra ~0 e 1:
-        - vicino a 1 -> molto fluido
-        - vicino a 0 -> molto sporco
+        Fluidità dello stile di guida basata sulla "dolcezza" dei cambi di:
+        - gas normalizzato
+        - acc_x (in g)
+
+        Ritorna un valore tra 0 e 1:
+        - 0 = guida molto nervosa / a scatti
+        - 1 = guida molto fluida / dolce
         """
-        if not self.throttle or not self.acc_x:
+
+        if not self.time or len(self.time) < 3:
             return 0.0
 
+        t   = np.asarray(self.time, dtype=float)
         thr = np.asarray(self._normalize_pedal(self.throttle), dtype=float)
-        ax  = np.asarray(self.acc_x, dtype=float)
+        ax  = np.asarray(self.acc_x, dtype=float) / 9.81  # in "g"
 
-        n = min(len(thr), len(ax))
-        if n < 2:
+        n = min(len(t), len(thr), len(ax))
+        if n < 3:
             return 0.0
 
+        t   = t[:n]
         thr = thr[:n]
         ax  = ax[:n]
 
-        # normalizza acc_x per non farlo dominare ([-1, 1] circa)
-        ax_abs_max = float(np.max(np.abs(ax))) if np.max(np.abs(ax)) > 0 else 1.0
-        ax_norm = ax / ax_abs_max
+        # dt tra campioni consecutivi
+        dt = np.diff(t)
+        # filtro dt non validi
+        valid = dt > 1e-6
+        if not np.any(valid):
+            return 0.0
 
-        var_thr = float(np.var(thr))
-        var_ax  = float(np.var(ax_norm))
+        dt_valid   = dt[valid]
+        dthr_dt    = np.diff(thr)[valid] / dt_valid
+        dax_dt     = np.diff(ax)[valid]  / dt_valid
 
-        mean_var = (var_thr + var_ax) / 2.0
-       
-        fluidity_score = 1.0 / (1.0 + mean_var)
+        mean_abs_dthr_dt = float(np.mean(np.abs(dthr_dt)))
+        mean_abs_dax_dt  = float(np.mean(np.abs(dax_dt)))
 
-        return fluidity_score
+        # --- Costanti di riferimento (da tarare ma con significato chiaro) ---
+        # MAX_DTHR: es. 2.0 → cambio gas 0→1 in 0.5 s (1 / 0.5 = 2)
+        MAX_DTHR = 2.0    # [unità gas] per secondo
+        # MAX_DAX: es. 2.0 → cambi di 2 g/s considerati "molto nervosi"
+        MAX_DAX  = 2.0    # [g] per secondo
 
+        # Nervosità normalizzata in [0,1]
+        nerv_thr = min(mean_abs_dthr_dt / MAX_DTHR, 1.0)
+        nerv_ax  = min(mean_abs_dax_dt  / MAX_DAX,  1.0)
+
+        # media pesata della nervosità (puoi cambiare i pesi se vuoi)
+        mean_nerv = 0.5 * nerv_thr + 0.5 * nerv_ax
+
+        # Fluidità = opposto della nervosità
+        fluidity = 1.0 - mean_nerv
+        # safety clamp
+        return float(max(0.0, min(1.0, fluidity)))
 
 
     def efficiency(self) -> float:
