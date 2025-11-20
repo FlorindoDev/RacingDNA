@@ -405,8 +405,8 @@ class Curve:
 
         # MAX_DTHR: es. 5.0 → cambio gas 0→1 in 0.2 s (1 / 0.2 = 5)
         MAX_DTHR = 5.0    # [unità gas] per secondo
-        # MAX_DAX: es. 3.0 → cambi di 5 g/s considerati "molto nervosi"
-        MAX_DAX  = 3.0    # [g] per secondo
+        # MAX_DAX: es. 1.0 → cambi di 6 g/s considerati "molto nervosi"
+        MAX_DAX  = 6.0    # [g] per secondo
 
         # Nervosità normalizzata in [0,1]
         nerv_thr = min(mean_abs_dthr_dt / MAX_DTHR, 1.0)
