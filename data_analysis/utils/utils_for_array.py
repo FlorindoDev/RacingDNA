@@ -14,6 +14,7 @@ def find_frist_value(array, value):
             return i
     return len(array) - 1
 
+#Ritorna una indice
 def find_closest_value(array, value):
     array = np.asarray(array)
     return np.abs(array - value).argmin()
