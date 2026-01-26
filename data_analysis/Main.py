@@ -5,10 +5,10 @@ from utils.CurveDetector import CurveDetector
 def main():
     """Funzione main del progetto Iot Zecconi e Gagliotti"""
     print("Ciao dal main!")
-    curve_detector = CurveDetector("data/48_telL_SLOW.json", "data/corners_L.json")
+    curve_detector = CurveDetector("data/4_telM.json", "data/corners_M.json")
     curves = curve_detector.calcolo_curve()
-    #for i in range(0 , len(curves)):
-       
+    for i in range(0 , len(curves)):
+        print(len(curves[i].time))
         # curves[i].plot_trajectory_speed()
         # curves[i].plot_curvature()
         # curves[i].plot_vehicle_stability()
