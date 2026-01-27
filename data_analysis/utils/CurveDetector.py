@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from Model.Curve import Curve
 from .utils_for_array import *
 
+
 import os
 
 class CurveDetector:
@@ -106,28 +107,28 @@ class CurveDetector:
 
 
 
-    def isApexInInterval(self, dist_array, apex_distances, index_end, index_start, curve_number):
-        if dist_array[index_start] > apex_distances[curve_number]:
+    def isApexInInterval(self, dist_array, corner_distances, index_end, index_start, curve_number):
+        if dist_array[index_start] > corner_distances[curve_number]:
             return False
 
-        if dist_array[index_end] < apex_distances[curve_number]:
+        if dist_array[index_end] < corner_distances[curve_number]:
             return False
 
         return True
 
-    def getBounds(self, curve_number, apex_point, prev_apex, next_apex, n_corners):
+    def getBounds(self, curve_number, corner_point, prev_corner, next_corner, n_corners):
         DEFAULT_FIRST_DISTANCE_CURVE = 150
         DEFAULT_LAST_DISTANCE_CURVE = 250
 
         if curve_number == 0:
-            lower_bound = apex_point - DEFAULT_FIRST_DISTANCE_CURVE
+            lower_bound = corner_point - DEFAULT_FIRST_DISTANCE_CURVE
         else:
-            lower_bound = 0.5 * (prev_apex + apex_point)
+            lower_bound = 0.5 * (prev_corner + corner_point)
 
         if curve_number == n_corners - 1:
-            upper_bound = apex_point + DEFAULT_LAST_DISTANCE_CURVE
+            upper_bound = corner_point + DEFAULT_LAST_DISTANCE_CURVE
         else:
-            upper_bound = 0.5 * (apex_point + next_apex)
+            upper_bound = 0.5 * (corner_point + next_corner)
 
         return lower_bound, upper_bound
 
@@ -167,7 +168,7 @@ class CurveDetector:
 
         for i in range(n_corners):
 
-            current_apex_point = self.corner_distances[i]
+            current_corner_distance = self.corner_distances[i]
             prev_apex = 0
             next_apex = 0
 
@@ -176,7 +177,7 @@ class CurveDetector:
             if (i < n_corners - 1):
                 next_apex = self.corner_distances[i + 1]
 
-            lower_bound, upper_bound = self.getBounds(i, current_apex_point, prev_apex, next_apex, n_corners)
+            lower_bound, upper_bound = self.getBounds(i, current_corner_distance, prev_apex, next_apex, n_corners)
 
             start_win_idx = find_frist_value(self.tel_dist, lower_bound)
             end_win_idx = find_last_value(self.tel_dist, upper_bound)
@@ -194,8 +195,8 @@ class CurveDetector:
                     distance_from_start = pilot_apex - curve_start_idx
                     distance_from_end   = curve_end_idx - pilot_apex
 
-                    MARGIN_BEFORE = 20   
-                    MARGIN_AFTER  = 20   
+                    MARGIN_BEFORE = 25   
+                    MARGIN_AFTER  = 25
 
                     # se la curva inizia troppo lontano dall'apice → avvicino lo start
                     if distance_from_start > MARGIN_BEFORE:
@@ -209,7 +210,7 @@ class CurveDetector:
 
                     curve = Curve(
                         corner_id=self.corner_numbers[i],
-                        apex_dist=current_apex_point,
+                        current_corner_dist=current_corner_distance,
                         lower_bound=lower_bound,
                         upper_bound=upper_bound,
                         compound=self.compound,
@@ -252,7 +253,7 @@ class CurveDetector:
 
         for c in detected_corners:
             # verticale del punto TEORICO (apice curva)
-            theo_idx = find_frist_value(self.tel_dist, c.apex_dist)
+            theo_idx = find_frist_value(self.tel_dist, c.current_corner_dist)
             ax1.axvline(self.time[theo_idx], color='black', linestyle='--', linewidth=1, alpha=0.5)
 
             # finestra di ricerca [lower_bound, upper_bound]
@@ -300,7 +301,7 @@ class CurveDetector:
                 # Provo a trovare l'indice dell'apice dentro la curva
                 # usando la distanza lungo il giro
                 try:
-                    apex_idx_local = find_frist_value(c.distance, c.apex_dist)
+                    apex_idx_local = find_frist_value(c.distance, c.current_corner_dist)
                     apex_x = c.x[apex_idx_local]
                     apex_y = c.y[apex_idx_local]
 
