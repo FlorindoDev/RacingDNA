@@ -227,20 +227,19 @@ class CurveDetector:
                 lenght_curve = curve_end_idx - curve_start_idx + 1
                 if lenght_curve >= self.MIN_SAMPLES_IN_CURVE:
                   
-                    pilot_apex = self.index_center_current_corner
-                    distance_from_start = pilot_apex - curve_start_idx
-                    distance_from_end   = curve_end_idx - pilot_apex
+                    distance_from_start = self.index_center_current_corner - curve_start_idx
+                    distance_from_end   = curve_end_idx - self.index_center_current_corner
 
                     MARGIN_BEFORE = 25   
                     MARGIN_AFTER  = 25
 
                     # se la curva inizia troppo lontano dall'apice → avvicino lo start
                     if distance_from_start > MARGIN_BEFORE:
-                        curve_start_idx = pilot_apex - MARGIN_BEFORE
+                        curve_start_idx = self.index_center_current_corner - MARGIN_BEFORE
 
                     # se la curva finisce troppo lontano dall'apice → avvicino l'end
                     if distance_from_end > MARGIN_AFTER:
-                        curve_end_idx = pilot_apex + MARGIN_AFTER
+                        curve_end_idx = self.index_center_current_corner + MARGIN_AFTER
 
                             
 
