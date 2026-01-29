@@ -6,7 +6,7 @@ from typing import List, Tuple, Dict
 
 
 df = pd.read_csv(
-    "../dataset_curves.csv",   
+    "../../data/dataset/dataset_curves.csv",   
     sep=",",
     encoding="utf-8",
     decimal="."
@@ -122,7 +122,7 @@ print("Mask Shape:", mask.shape)
 
 
 # Save to .npz
-output_filename = "normalized_dataset.npz"
+output_filename = "../../data/dataset/normalized_dataset.npz"
 np.savez(
     output_filename, 
     data=df_normalized.values, 

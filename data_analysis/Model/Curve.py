@@ -4,7 +4,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from utils.utils_for_array import find_closest_value
 
-
 class Curve:
     def __init__(
         self,

@@ -24,7 +24,7 @@ except ImportError:
 # Assuming script is run from data_analysis/utils/ or similar depth
 # data/2025-main is at ../../data/2025-main relative to this script
 DATA_DIR = os.path.abspath(os.path.join(parent_dir, "..", "data", "2025-main"))
-OUTPUT_FILE = os.path.abspath(os.path.join(parent_dir, "dataset_curves.csv"))
+OUTPUT_FILE = os.path.abspath(os.path.join(parent_dir, "..", "data", "dataset", "dataset_curves.csv"))
 MAX_POINTS = 50
 PADDING = -1000
 

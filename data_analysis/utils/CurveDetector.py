@@ -4,8 +4,6 @@ import matplotlib.pyplot as plt
 from Model.Curve import Curve
 from .utils_for_array import *
 import math
-
-
 import os
 
 
@@ -108,7 +106,6 @@ class CurveDetector:
         try:
             dir_path = os.path.dirname(self.telemetry_filename)
             base_name = os.path.basename(self.telemetry_filename)
-
             # Extract lap number from filename (e.g., "12_tel.json" -> 12)
             parts = base_name.split("_")
             if parts[0].isdigit():
