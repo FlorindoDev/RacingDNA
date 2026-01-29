@@ -185,6 +185,7 @@ def main():
                 header_written = True
                 
                 count = len(df)
+                
                 total_curves += count
                 print(f"Saved {count} curves from {item}. Total so far: {total_curves}")
                 
