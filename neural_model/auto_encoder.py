@@ -25,10 +25,11 @@ else:
 
 
 class AutoEncoder(nn.Module):
-    def __init__(self, input_dim=605, latent_dim=32):
+    def __init__(self, input_dim=455, latent_dim=32):
         super().__init__()
         self.losses = []
         self.input_dim= input_dim
+        self.loss_function = MaskeredMSELoss().to(device)
 
         # Encoder: x -> z
         self.encoder = nn.Sequential(
@@ -48,78 +49,59 @@ class AutoEncoder(nn.Module):
             nn.Linear(256, input_dim)
         )
 
-    def forward(self, x):
+    def forward(self, x, encoder_only=False):
         z = self.encoder(x)
-        x_hat = self.decoder(z)
-        return x_hat
-    
-    def add_padding(self,x):
-        #for _ in range(len(x),self.input_dim):
-        pass
+        if encoder_only:
+            return z 
+        else:
+            x_hat = self.decoder(z)
+            return x_hat
 
 
-
-    def train(self,loss_function,optimizer,epochs,data_set, bach_size=32):
+    def train(self, optimizer, epochs, input, mask, bach_size=32):
         outputs = []
+        self.losses = []
 
-        # tensor_transform = transforms.ToTensor()
-        # dataset = datasets.MNIST(root="./data", train=True, download=True, transform=tensor_transform)
-        # loader = torch.utils.data.DataLoader(dataset=dataset, batch_size=32, shuffle=True)
+        for epoch in range(epochs):
+            print(f"\n\nEpoch {epoch + 1}/{epochs}\n" + "-" * 40)
+            total_loss = 0
+            num_batches = 0
+
+            for i in range(0, len(input), bach_size):
+                batch_input = np.atleast_1d(input[i:i+bach_size])
+                batch_mask = np.atleast_1d(mask[i:i+bach_size])
+
+                batch_input = torch.tensor(batch_input, dtype=torch.float32).to(device)
+                batch_mask = torch.tensor(batch_mask, dtype=torch.float32).to(device)
+
+                optimizer.zero_grad()
+                outputs = self.forward(batch_input)
+                loss = self.loss_function(outputs, batch_input, batch_mask)
+                loss.backward()
+                optimizer.step()
+
+                total_loss += loss.item()
+                num_batches += 1
+
+            avg_loss = total_loss / num_batches
+            print(f"Training loss: {avg_loss:.6f}")
+            self.losses.append(avg_loss)
 
 
 
+class MaskeredMSELoss(nn.MSELoss):
+    def __init__(self):
+        super(MaskeredMSELoss, self).__init__()
+
+    def forward(self, input, target, mask):
         
+        np_mask = mask.bool()
+        masked_input = input[np_mask]
+        masked_target = target[np_mask]
 
-
-        # for epoch in range(epochs):
-        #     for images, _ in loader:
-        #         images = images.view(-1, 28 * 28).to(device)
-                
-        #         reconstructed = model(images)
-        #         loss = loss_function(reconstructed, images)
-                
-        #         optimizer.zero_grad()
-        #         loss.backward()
-        #         optimizer.step()
-                
-        #         self.losses.append(loss.item())
-            
-        #     outputs.append((epoch, images, reconstructed))
-        #     print(f"Epoch {epoch+1}/{epochs}, Loss: {loss.item():.6f}")
+        return super(MaskeredMSELoss, self).forward(masked_input, masked_target)
 
 
 
-
-
-
-model = AutoEncoder()
-loss_function = nn.MSELoss()
-optimizer = optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-8)
-
-model.to(device)
-
-
-# with open("p.csv", newline="", encoding="utf-8") as f:
-#     reader = csv.DictReader(f)   # usa la prima riga come nomi colonna
-#     rows = list(reader)
-
-# print(rows[0])   # prima riga come dict
-X = np.loadtxt("p.csv", delimiter=",", skiprows=1)  # skip header
-len(X[0])
-X_vet = X.flatten()
-X_tensor = torch.tensor(X_vet, dtype=torch.float32)
-print(X_tensor)
-
-# model.train()
-
-plt.style.use('fivethirtyeight')
-plt.figure(figsize=(8, 5))
-plt.plot(model.losses, label='Loss')
-plt.xlabel('Iterations')
-plt.ylabel('Loss')
-plt.legend()
-plt.show()
-
-
-
+   
 

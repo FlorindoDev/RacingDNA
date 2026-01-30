@@ -2,3 +2,5 @@
 /data_analysis/verify_metrics.py
 /data
 /.venv
+.IoT
+./neural_model/pyvenv.cfg
