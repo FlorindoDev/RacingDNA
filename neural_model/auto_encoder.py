@@ -83,7 +83,7 @@ class AutoEncoder(nn.Module):
             nn.Linear(256, input_dim)
         )
 
-    def forward(self, x: torch.Tensor, encoder_only: bool = False) -> torch.Tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Forward pass dell'autoencoder.
         
@@ -94,13 +94,9 @@ class AutoEncoder(nn.Module):
         Returns:
             Latent code (se encoder_only=True) o ricostruzione completa
         """
-        latent_code = self.encoder(x)
-        
-        if encoder_only:
-            return latent_code
-        
-        reconstruction = self.decoder(latent_code)
-        return reconstruction
+        z = self.encoder(x)
+        x_hat = self.decoder(z)
+        return x_hat
 
     def train_model(
         self,
@@ -154,7 +150,7 @@ class AutoEncoder(nn.Module):
 
     def encode(self, x: torch.Tensor) -> torch.Tensor:
         """Shortcut per ottenere solo il codice latente."""
-        return self.forward(x, encoder_only=True)
+        return self.encoder(x)
 
     def decode(self, z: torch.Tensor) -> torch.Tensor:
         """Decodifica un codice latente."""
