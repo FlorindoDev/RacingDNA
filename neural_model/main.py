@@ -1,128 +1,337 @@
-import time
+"""
+Neural Model Latent Space Analysis
+
+This script loads a trained autoencoder model, encodes driving data into a latent space,
+performs dimensionality reduction using PCA, and visualizes clusters in both 2D and 3D.
+"""
+
 import torch
 import matplotlib.pyplot as plt
 import numpy as np
-from mpl_toolkits.mplot3d import Axes3D  # necessario per il 3D
+from mpl_toolkits.mplot3d import Axes3D
+from sklearn.decomposition import PCA
+from sklearn.cluster import KMeans
+
 from auto_encoder import AutoEncoder
-from sklearn.decomposition import PCA
+
+# Configuration constants
+DATASET_PATH = "..\\data\\dataset\\normalized_dataset2.npz"
+ENCODER_WEIGHTS_PATH = ".\\Pesi\\encoder4.pth"
+SAVE_ENCODER_PATH = ".\\Pesi\\encoder5.pth"  # Path for saving new trained weights
+LATENT_DIM = 64
+NUM_SAMPLES = 1000
+NUM_CLUSTERS = 3
+RANDOM_STATE = 0
+
+# Training configuration
+TRAIN_MODEL = False  # Set to True to train the model instead of loading weights
+SAVE_WEIGHTS = False  # Set to True to save weights after training
+LEARNING_RATE = 0.001
+WEIGHT_DECAY = 0.0001
+NUM_EPOCHS = 10
 
 
+def load_dataset(path: str) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Load the normalized dataset from an NPZ file.
+    
+    Args:
+        path: Path to the .npz file containing the dataset
+        
+    Returns:
+        Tuple of (data, mask) arrays
+    """
+    dataset = np.load(path, allow_pickle=True)
+    data = dataset["data"]
+    mask = dataset["mask"]
+    
+    print(f"Data shape: {data.shape}")
+    print(f"Mask shape: {mask.shape}")
+    
+    return data, mask
 
 
-path = "..\data\dataset\\normalized_dataset2.npz"  # cambia con il tuo file
-d = np.load(path, allow_pickle=True)
-
-data = d["data"]
-mask = d["mask"]
-
-# print("Data shape:", data.shape)
-# print("Mask shape:", mask.shape)
-# print("First data sample (first 50 elements):")
-# print(data[0][:50])
-# print(mask[0][:50])
-
-
-
-model = AutoEncoder(data.shape[1], latent_dim=64)
-# model.train(
-#         optimizer=torch.optim.AdamW(model.parameters(), lr=0.001,weight_decay=0.0001),
-#         epochs=10,
-#         input=data,
-#         mask=mask
-#     )   
-
-# torch.save(model.encoder.state_dict(), "Pesi/encoder5.pth")
-
-model.encoder.load_state_dict(torch.load(".\\Pesi\\encoder4.pth", map_location="cpu"))
+def load_model(input_dim: int, latent_dim: int, weights_path: str) -> AutoEncoder:
+    """
+    Initialize the AutoEncoder model and load pre-trained weights.
+    
+    Args:
+        input_dim: Dimension of input features
+        latent_dim: Dimension of latent space
+        weights_path: Path to the saved encoder weights
+        
+    Returns:
+        Loaded AutoEncoder model
+    """
+    model = AutoEncoder(input_dim, latent_dim=latent_dim)
+    model.encoder.load_state_dict(torch.load(weights_path, map_location="cpu"))
+    model.eval()
+    
+    print(f"Model loaded from {weights_path}")
+    
+    return model
 
 
-avg = []
-with torch.no_grad():
-
-    for elem in data[:1000]:
-        z = model.encode(torch.tensor(np.atleast_1d(elem), dtype=torch.float32))
-        avg.append(z.cpu().numpy())
-
-Z = np.array(avg)  # shape: (N, 32)
-
-
-
-# Riduzione a 3 dimensioni
-Z3 = PCA(n_components=3).fit_transform(Z)
-
-# Plot 3D
-fig = plt.figure()
-ax = fig.add_subplot(111, projection="3d")
-
-ax.scatter(Z3[:, 0], Z3[:, 1], Z3[:, 2])
-ax.set_xlabel("PC1")
-ax.set_ylabel("PC2")
-ax.set_zlabel("PC3")
-
-plt.show()
-
-# Riduzione a 2 dimensioni
-Z2 = PCA(n_components=2).fit_transform(Z)
-
-# Plot 2D
-plt.figure()
-plt.scatter(Z2[:, 0], Z2[:, 1])
-plt.xlabel("PC1")
-plt.ylabel("PC2")
-plt.title("Spazio latente (PCA 2D)")
-plt.grid(True)
-plt.show()
-
-
-from sklearn.cluster import KMeans
-
-kmeans = KMeans(n_clusters=3, random_state=0)
-clusters = kmeans.fit_predict(Z)
-
-# Riduciamo a 2 dimensioni
-pca = PCA(n_components=2)
-Z_2d = pca.fit_transform(Z)
-
-# Plot
-plt.figure(figsize=(8,6))
-scatter = plt.scatter(Z_2d[:, 0], Z_2d[:, 1], c=clusters)
-plt.xlabel("PC1")
-plt.ylabel("PC2")
-plt.title("Cluster nello spazio latente (PCA)")
-plt.colorbar(scatter, label="Cluster")
-plt.grid(True)
-plt.show()
+def train_model(
+    model: AutoEncoder,
+    data: np.ndarray,
+    mask: np.ndarray,
+    epochs: int,
+    learning_rate: float,
+    weight_decay: float
+) -> AutoEncoder:
+    """
+    Train the AutoEncoder model.
+    
+    Args:
+        model: AutoEncoder model to train
+        data: Training data
+        mask: Mask for padding values
+        epochs: Number of training epochs
+        learning_rate: Learning rate for optimizer
+        weight_decay: Weight decay for regularization
+        
+    Returns:
+        Trained AutoEncoder model
+    """
+    optimizer = torch.optim.AdamW(
+        model.parameters(),
+        lr=learning_rate,
+        weight_decay=weight_decay
+    )
+    
+    print(f"Starting training for {epochs} epochs...")
+    print(f"Learning rate: {learning_rate}, Weight decay: {weight_decay}")
+    
+    model.train(
+        optimizer=optimizer,
+        epochs=epochs,
+        input=data,
+        mask=mask
+    )
+    
+    print("Training completed!")
+    
+    return model
 
 
-from sklearn.cluster import KMeans
-from sklearn.decomposition import PCA
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
-import numpy as np
+def save_model_weights(model: AutoEncoder, save_path: str):
+    """
+    Save the encoder weights to a file.
+    
+    Args:
+        model: AutoEncoder model
+        save_path: Path where to save the encoder weights
+    """
+    torch.save(model.encoder.state_dict(), save_path)
+    print(f"Encoder weights saved to {save_path}")
 
-# Clustering nello spazio latente
-kmeans = KMeans(n_clusters=3, random_state=0)
-clusters = kmeans.fit_predict(Z)
 
-# Riduzione a 3 dimensioni
-pca = PCA(n_components=3)
-Z_3d = pca.fit_transform(Z)
+def encode_data(model: AutoEncoder, data: np.ndarray, num_samples: int) -> np.ndarray:
+    """
+    Encode data samples into the latent space.
+    
+    Args:
+        model: Trained AutoEncoder model
+        data: Input data array
+        num_samples: Number of samples to encode
+        
+    Returns:
+        Latent space representations as numpy array
+    """
+    latent_vectors = []
+    
+    with torch.no_grad():
+        for sample in data[:num_samples]:
+            # Convert to tensor and encode
+            sample_tensor = torch.tensor(np.atleast_1d(sample), dtype=torch.float32)
+            latent_vector = model.encode(sample_tensor)
+            latent_vectors.append(latent_vector.cpu().numpy())
+    
+    latent_space = np.array(latent_vectors)
+    print(f"Encoded {num_samples} samples into latent space: {latent_space.shape}")
+    
+    return latent_space
 
-# Plot 3D
-fig = plt.figure(figsize=(8, 6))
-ax = fig.add_subplot(111, projection="3d")
 
-sc = ax.scatter(
-    Z_3d[:, 0],
-    Z_3d[:, 1],
-    Z_3d[:, 2],
-    c=clusters
-)
+def perform_clustering(latent_space: np.ndarray, n_clusters: int, random_state: int) -> np.ndarray:
+    """
+    Perform K-Means clustering on the latent space.
+    
+    Args:
+        latent_space: Latent space representations
+        n_clusters: Number of clusters
+        random_state: Random state for reproducibility
+        
+    Returns:
+        Cluster labels for each sample
+    """
+    kmeans = KMeans(n_clusters=n_clusters, random_state=random_state)
+    clusters = kmeans.fit_predict(latent_space)
+    
+    print(f"Clustering completed: {n_clusters} clusters identified")
+    
+    return clusters
 
-ax.set_xlabel("PC1")
-ax.set_ylabel("PC2")
-ax.set_zlabel("PC3")
-ax.set_title("Cluster nello spazio latente (PCA 3D)")
 
-plt.colorbar(sc, label="Cluster")
-plt.show()
+def plot_latent_space_2d(latent_space: np.ndarray, title: str = "Latent Space (PCA 2D)"):
+    """
+    Visualize latent space in 2D using PCA.
+    
+    Args:
+        latent_space: Latent space representations
+        title: Plot title
+    """
+    # Reduce to 2 dimensions
+    pca = PCA(n_components=2)
+    latent_2d = pca.fit_transform(latent_space)
+    
+    # Create plot
+    plt.figure(figsize=(8, 6))
+    plt.scatter(latent_2d[:, 0], latent_2d[:, 1], alpha=0.6)
+    plt.xlabel("PC1")
+    plt.ylabel("PC2")
+    plt.title(title)
+    plt.grid(True)
+    plt.show()
+
+
+def plot_latent_space_3d(latent_space: np.ndarray, title: str = "Latent Space (PCA 3D)"):
+    """
+    Visualize latent space in 3D using PCA.
+    
+    Args:
+        latent_space: Latent space representations
+        title: Plot title
+    """
+    # Reduce to 3 dimensions
+    pca = PCA(n_components=3)
+    latent_3d = pca.fit_transform(latent_space)
+    
+    # Create 3D plot
+    fig = plt.figure(figsize=(10, 8))
+    ax = fig.add_subplot(111, projection="3d")
+    
+    ax.scatter(latent_3d[:, 0], latent_3d[:, 1], latent_3d[:, 2], alpha=0.6)
+    ax.set_xlabel("PC1")
+    ax.set_ylabel("PC2")
+    ax.set_zlabel("PC3")
+    ax.set_title(title)
+    
+    plt.show()
+
+
+def plot_clusters_2d(latent_space: np.ndarray, clusters: np.ndarray):
+    """
+    Visualize clusters in 2D latent space.
+    
+    Args:
+        latent_space: Latent space representations
+        clusters: Cluster labels for each sample
+    """
+    # Reduce to 2 dimensions
+    pca = PCA(n_components=2)
+    latent_2d = pca.fit_transform(latent_space)
+    
+    # Create plot
+    plt.figure(figsize=(8, 6))
+    scatter = plt.scatter(latent_2d[:, 0], latent_2d[:, 1], c=clusters, cmap='viridis', alpha=0.6)
+    plt.xlabel("PC1")
+    plt.ylabel("PC2")
+    plt.title("Clusters in Latent Space (PCA 2D)")
+    plt.colorbar(scatter, label="Cluster")
+    plt.grid(True)
+    plt.show()
+
+
+def plot_clusters_3d(latent_space: np.ndarray, clusters: np.ndarray):
+    """
+    Visualize clusters in 3D latent space.
+    
+    Args:
+        latent_space: Latent space representations
+        clusters: Cluster labels for each sample
+    """
+    # Reduce to 3 dimensions
+    pca = PCA(n_components=3)
+    latent_3d = pca.fit_transform(latent_space)
+    
+    # Create 3D plot
+    fig = plt.figure(figsize=(10, 8))
+    ax = fig.add_subplot(111, projection="3d")
+    
+    scatter = ax.scatter(
+        latent_3d[:, 0],
+        latent_3d[:, 1],
+        latent_3d[:, 2],
+        c=clusters,
+        cmap='viridis',
+        alpha=0.6
+    )
+    
+    ax.set_xlabel("PC1")
+    ax.set_ylabel("PC2")
+    ax.set_zlabel("PC3")
+    ax.set_title("Clusters in Latent Space (PCA 3D)")
+    
+    plt.colorbar(scatter, label="Cluster")
+    plt.show()
+
+
+def main():
+    """
+    Main execution function for latent space analysis.
+    """
+    print("=" * 60)
+    print("Latent Space Analysis - Driving Style Model")
+    print("=" * 60)
+    
+    # Load dataset
+    print("\n[1/6] Loading dataset...")
+    data, mask = load_dataset(DATASET_PATH)
+    
+    # Initialize or load model
+    if TRAIN_MODEL:
+        print("\n[2/6] Initializing and training autoencoder model...")
+        model = AutoEncoder(data.shape[1], latent_dim=LATENT_DIM)
+        model = train_model(
+            model=model,
+            data=data,
+            mask=mask,
+            epochs=NUM_EPOCHS,
+            learning_rate=LEARNING_RATE,
+            weight_decay=WEIGHT_DECAY
+        )
+        
+        # Save weights if requested
+        if SAVE_WEIGHTS:
+            save_model_weights(model, SAVE_ENCODER_PATH)
+    else:
+        print("\n[2/6] Loading pre-trained autoencoder model...")
+        model = load_model(data.shape[1], LATENT_DIM, ENCODER_WEIGHTS_PATH)
+    
+    # Encode data into latent space
+    print("\n[3/6] Encoding data into latent space...")
+    latent_space = encode_data(model, data, NUM_SAMPLES)
+    
+    # Visualize latent space without clustering
+    print("\n[4/6] Visualizing latent space...")
+    plot_latent_space_2d(latent_space)
+    plot_latent_space_3d(latent_space)
+    
+    # Perform clustering
+    print("\n[5/6] Performing K-Means clustering...")
+    clusters = perform_clustering(latent_space, NUM_CLUSTERS, RANDOM_STATE)
+    
+    # Visualize clusters
+    print("\n[6/6] Visualizing clusters...")
+    plot_clusters_2d(latent_space, clusters)
+    plot_clusters_3d(latent_space, clusters)
+    
+    print("\n" + "=" * 60)
+    print("Analysis complete!")
+    print("=" * 60)
+
+
+if __name__ == "__main__":
+    main()
