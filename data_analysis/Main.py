@@ -8,19 +8,10 @@ def main():
 
     curve_detector = CurveDetector("data/2025-main/Abu Dhabi Grand Prix/Race/VER/15_tel.json", "data/2025-main/Abu Dhabi Grand Prix/Race/corners.json")
     curves = curve_detector.calcolo_curve()
-    #for i in range(0 , len(curves)):
-        #print(len(curves[i].time))
-        # curves[i].plot_trajectory_speed()
-        # curves[i].plot_curvature()
-        # curves[i].plot_vehicle_stability()
-        # curves[i].plot_efficiency_profile()
-        # curves[i].plot_energy_input_profile(use_time=True)
-        # curves[i].plot_energy_lost_brake_profile(use_time=True)
-        # curves[i].plot_aggressiveness_profile(use_time=True)
-        # curves[i].plot_fluidity_profile()
-        # curves[i].plot_trail_braking_profile(use_time=True)
-        # curves[i].plot_grip_usage_profile(use_time=True)
-        #print(Curve.classify_driver_style(curves[i]))
+    # for i in range(0 , len(curves)):
+    #     #curves[i].plot_telemetry()
+    #     curves[i].plot_complex_metrics()
+
         
     curve_detector.grafico(curves,False)
     curve_detector.plot_curve_trajectories(curves)

@@ -127,7 +127,7 @@ class CurveDetector:
                                 self.stint = laptimes_data["stint"][current_lap]
 
         except Exception as e:
-            print(f"Error extracting tire info for {telemetry_filename}: {e}")
+            pass
 
 
 

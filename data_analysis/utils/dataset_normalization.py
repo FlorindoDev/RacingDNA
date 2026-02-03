@@ -1,12 +1,10 @@
 
-import json
 import numpy as np
 import pandas as pd
-from typing import List, Tuple, Dict
 
 
 df = pd.read_csv(
-    "../../data/dataset/dataset_curves.csv",   
+    "data/dataset/dataset_curves.csv",   
     sep=",",
     encoding="utf-8",
     decimal="."
@@ -29,13 +27,23 @@ df = df.drop(df.columns[352:], axis=1)
 if 'Compound' in df.columns:
     print("Found 'Compound' column, performing One-Hot Encoding...")
 
+    target_categories = ['HARD', 'INTERMEDIATE','MEDIUM', 'SOFT']
     compound_dummies = pd.get_dummies(df['Compound'], prefix='Compound', dtype=float)
+
+    # Add missing columns and enforce order
+    for cat in target_categories:
+        col = f"Compound_{cat}"
+        if col not in compound_dummies.columns:
+            compound_dummies[col] = 0.0
+
+    compound_dummies = compound_dummies[[f"Compound_{cat}" for cat in target_categories]]
 
     df = pd.concat([df, compound_dummies], axis=1)
     df = df.drop('Compound', axis=1)
+    # for i,col in enumerate(df.columns):
+    #     print(i,col)
 else:
     print("WARNING: 'Compound' column not found in dataframe columns:", df.columns)
-
 
 
 # --- MASKING & NORMALIZATION ---
@@ -127,7 +135,7 @@ print("Mask Shape:", mask.shape)
 
 
 # Save to .npz
-output_filename = "../../data/dataset/normalized_dataset2.npz"
+output_filename = "data/dataset/normalized_dataset.npz"
 np.savez(
     output_filename, 
     data=df_normalized.values, 

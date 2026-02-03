@@ -8,16 +8,26 @@ performs dimensionality reduction using PCA, and visualizes clusters in both 2D 
 import torch
 import matplotlib.pyplot as plt
 import numpy as np
+import sys
+import os
+
+# Add project root to Python path to enable imports from data_analysis
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+from data_analysis.Model.Curve import Curve
 from mpl_toolkits.mplot3d import Axes3D
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
 
+
 from auto_encoder import AutoEncoder
 
 # Configuration constants
-DATASET_PATH = "..\\data\\dataset\\normalized_dataset2.npz"
-ENCODER_WEIGHTS_PATH = ".\\Pesi\\encoder4.pth"
-SAVE_ENCODER_PATH = ".\\Pesi\\encoder5.pth"  # Path for saving new trained weights
+DATASET_PATH = "data\\dataset\\normalized_dataset.npz"
+ENCODER_WEIGHTS_PATH = "neural_model\\Pesi\\encoder2.pth"
+SAVE_ENCODER_PATH = "neural_model\\Pesi\\encoder2.pth"  # Path for saving new trained weights
 LATENT_DIM = 64
 NUM_SAMPLES = 1000
 NUM_CLUSTERS = 3
@@ -103,10 +113,10 @@ def train_model(
     print(f"Starting training for {epochs} epochs...")
     print(f"Learning rate: {learning_rate}, Weight decay: {weight_decay}")
     
-    model.train(
+    model.train_model(
         optimizer=optimizer,
         epochs=epochs,
-        input=data,
+        train_data=data,
         mask=mask
     )
     
@@ -127,34 +137,42 @@ def save_model_weights(model: AutoEncoder, save_path: str):
     print(f"Encoder weights saved to {save_path}")
 
 
-def encode_data(model: AutoEncoder, data: np.ndarray, num_samples: int) -> np.ndarray:
+def encode_data(model: AutoEncoder, data: np.ndarray, mask: list, num_samples: int) -> tuple[list, np.ndarray]:
     """
     Encode data samples into the latent space.
     
     Args:
         model: Trained AutoEncoder model
         data: Input data array
+        mask: Mask array for padding values
         num_samples: Number of samples to encode
         
     Returns:
-        Latent space representations as numpy array
+        Tuple of (curves list, latent_space array)
     """
+    curves = []
     latent_vectors = []
     
     with torch.no_grad():
-        for sample in data[:num_samples]:
+        for i, sample in enumerate(data[:num_samples]):
             # Convert to tensor and encode
             sample_tensor = torch.tensor(np.atleast_1d(sample), dtype=torch.float32)
             latent_vector = model.encode(sample_tensor)
-            latent_vectors.append(latent_vector.cpu().numpy())
+            latent_np = latent_vector.cpu().numpy()
+            
+            # Create Curve object
+            curva = Curve.from_sample(sample, mask[i], latent_np)
+            curves.append(curva)
+            latent_vectors.append(latent_np)
     
+    # Convert latent vectors to numpy array
     latent_space = np.array(latent_vectors)
     print(f"Encoded {num_samples} samples into latent space: {latent_space.shape}")
     
-    return latent_space
+    return curves, latent_space
 
 
-def perform_clustering(latent_space: np.ndarray, n_clusters: int, random_state: int) -> np.ndarray:
+def perform_clustering(latent_space: np.ndarray, curves: Curve, n_clusters: int, random_state: int) -> np.ndarray:
     """
     Perform K-Means clustering on the latent space.
     
@@ -168,7 +186,10 @@ def perform_clustering(latent_space: np.ndarray, n_clusters: int, random_state: 
     """
     kmeans = KMeans(n_clusters=n_clusters, random_state=random_state)
     clusters = kmeans.fit_predict(latent_space)
-    
+
+    for i,num_cluster in enumerate(clusters):
+        curves[i].num_cluster = num_cluster
+
     print(f"Clustering completed: {n_clusters} clusters identified")
     
     return clusters
@@ -287,12 +308,12 @@ def main():
     print("=" * 60)
     
     # Load dataset
-    print("\n[1/6] Loading dataset...")
+    print("\n[1/7] Loading dataset...")
     data, mask = load_dataset(DATASET_PATH)
     
     # Initialize or load model
     if TRAIN_MODEL:
-        print("\n[2/6] Initializing and training autoencoder model...")
+        print("\n[2/7] Initializing and training autoencoder model...")
         model = AutoEncoder(data.shape[1], latent_dim=LATENT_DIM)
         model = train_model(
             model=model,
@@ -307,26 +328,31 @@ def main():
         if SAVE_WEIGHTS:
             save_model_weights(model, SAVE_ENCODER_PATH)
     else:
-        print("\n[2/6] Loading pre-trained autoencoder model...")
+        print("\n[2/7] Loading pre-trained autoencoder model...")
         model = load_model(data.shape[1], LATENT_DIM, ENCODER_WEIGHTS_PATH)
     
     # Encode data into latent space
-    print("\n[3/6] Encoding data into latent space...")
-    latent_space = encode_data(model, data, NUM_SAMPLES)
+    print("\n[3/7] Encoding data into latent space...")
+    curves, latent_space = encode_data(model, data, mask, NUM_SAMPLES)
     
+
     # Visualize latent space without clustering
-    print("\n[4/6] Visualizing latent space...")
+    print("\n[4/7] Visualizing latent space...")
     plot_latent_space_2d(latent_space)
     plot_latent_space_3d(latent_space)
     
     # Perform clustering
-    print("\n[5/6] Performing K-Means clustering...")
-    clusters = perform_clustering(latent_space, NUM_CLUSTERS, RANDOM_STATE)
+    print("\n[5/7] Performing K-Means clustering...")
+    clusters = perform_clustering(latent_space,curves, NUM_CLUSTERS, RANDOM_STATE)
     
     # Visualize clusters
-    print("\n[6/6] Visualizing clusters...")
+    print("\n[6/7] Visualizing clusters...")
     plot_clusters_2d(latent_space, clusters)
     plot_clusters_3d(latent_space, clusters)
+
+    print("\n[7/7] Visualizing Curves...")
+    for i in range(0 , len(curves)):
+        print(curves[i].num_cluster)
     
     print("\n" + "=" * 60)
     print("Analysis complete!")
