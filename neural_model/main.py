@@ -23,9 +23,10 @@ from sklearn.cluster import KMeans
 
 
 from auto_encoder import AutoEncoder
+from deep_embedded_clustering import DECAutoEncoder
 
 # Configuration constants
-DATASET_PATH = "data\\dataset\\normalized_dataset2.npz"
+DATASET_PATH = "data\\dataset\\normalized_dataset.npz"
 ENCODER_WEIGHTS_PATH = "neural_model\\Pesi\\encoder3.pth"
 SAVE_ENCODER_PATH = "neural_model\\Pesi\\encoder3.pth"  # Path for saving new trained weights
 LATENT_DIM = 32
@@ -39,6 +40,12 @@ SAVE_WEIGHTS = True  # Set to True to save weights after training
 LEARNING_RATE = 0.001
 WEIGHT_DECAY = 0.0001
 NUM_EPOCHS = 10
+
+# DEC Configuration
+USE_DEC = True  # Set to True to use Deep Embedded Clustering
+DEC_PRETRAIN_EPOCHS = 10  # Pretraining epochs (reconstruction only)
+DEC_FINETUNE_EPOCHS = 10  # Finetuning epochs (reconstruction + clustering)
+DEC_RECONSTRUCTION_WEIGHT = 0.1  # Weight for reconstruction loss in combined loss
 
 
 def load_dataset(path: str) -> tuple[np.ndarray, np.ndarray]:
@@ -317,16 +324,44 @@ def main():
     
     # Initialize or load model
     if TRAIN_MODEL:
-        print("\n[2/7] Initializing and training autoencoder model...")
-        model = AutoEncoder(data.shape[1], latent_dim=LATENT_DIM)
-        model = train_model(
-            model=model,
-            data=data,
-            mask=mask,
-            epochs=NUM_EPOCHS,
-            learning_rate=LEARNING_RATE,
-            weight_decay=WEIGHT_DECAY
-        )
+        if USE_DEC:
+            print("\n[2/7] Training DEC (Deep Embedded Clustering) model...")
+            model = DECAutoEncoder(
+                input_dim=data.shape[1], 
+                latent_dim=LATENT_DIM,
+                n_clusters=NUM_CLUSTERS
+            )
+            
+            # Phase 1: Pretrain autoencoder
+            model.pretrain(
+                data=data,
+                mask=mask,
+                epochs=DEC_PRETRAIN_EPOCHS,
+                learning_rate=LEARNING_RATE,
+                weight_decay=WEIGHT_DECAY
+            )
+            
+            # Initialize clusters with K-Means
+            model.initialize_clusters(data)
+            
+            # Phase 2: DEC finetuning
+            model.train_dec(
+                data=data,
+                mask=mask,
+                epochs=DEC_FINETUNE_EPOCHS,
+                reconstruction_weight=DEC_RECONSTRUCTION_WEIGHT
+            )
+        else:
+            print("\n[2/7] Initializing and training autoencoder model...")
+            model = AutoEncoder(data.shape[1], latent_dim=LATENT_DIM)
+            model = train_model(
+                model=model,
+                data=data,
+                mask=mask,
+                epochs=NUM_EPOCHS,
+                learning_rate=LEARNING_RATE,
+                weight_decay=WEIGHT_DECAY
+            )
         
         # Save weights if requested
         if SAVE_WEIGHTS:
