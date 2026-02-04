@@ -24,7 +24,7 @@ except ImportError:
 # Assuming script is run from data_analysis/utils/ or similar depth
 # data/2025-main is at ../../data/2025-main relative to this script
 DATA_DIR = os.path.abspath(os.path.join(parent_dir, "..", "data", "2025-main"))
-OUTPUT_FILE = os.path.abspath(os.path.join(parent_dir, "..", "data", "dataset", "dataset_curves.csv"))
+OUTPUT_FILE = os.path.abspath(os.path.join(parent_dir, "..", "data", "dataset", "dataset_curves2.csv"))
 MAX_POINTS = 50
 PADDING = -1000
 
@@ -170,7 +170,7 @@ def main():
         item_path = os.path.join(DATA_DIR, item)
         if os.path.isdir(item_path) and "Grand Prix" in item:
             # Process one Grand Prix
-            gp_data = process_grand_prix(item_path)
+            gp_data = process_grand_prix(item_path,["LEC", "HAM"])
             
             if not gp_data:
                 continue

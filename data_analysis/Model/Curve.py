@@ -52,10 +52,12 @@ class Curve:
         self.num_cluster = None
 
     @classmethod
-    def from_sample(
+    def from_norm_data(
         cls,
         sample: np.ndarray,
         mask: np.ndarray,
+        mean: np.ndarray,
+        std: np.ndarray,
         latent_variable: Optional[List[float]] = None,
         num_cluster: Optional[int] = None,
     ):
@@ -86,14 +88,28 @@ class Curve:
         bool_mask = mask.astype(bool)
 
         life = int(sample[0])  # se life non è mascherato, meglio così
-
+        life = cls._denormalize_value(cls,life, mean[0], std[0]) 
+        
         speed = sample[1:51][bool_mask[1:51]].tolist()
+        speed = cls._denormalize_array(cls,np.asarray(speed), mean[1], std[1]).tolist()
+
         rpm = sample[51:101][bool_mask[51:101]].tolist()
+        rpm = cls._denormalize_array(cls,np.asarray(rpm), mean[51], std[51]).tolist()
+
         throttle = sample[101:151][bool_mask[101:151]].tolist()
+        throttle = cls._denormalize_array(cls,np.asarray(throttle), mean[101], std[101]).tolist()
+        
         brake = sample[151:201][bool_mask[151:201]].tolist()
+        brake = cls._denormalize_array(cls,np.asarray(brake), mean[151], std[151]).tolist()
+
         acc_x = sample[201:251][bool_mask[201:251]].tolist()
+        acc_x = cls._denormalize_array(cls,np.asarray(acc_x), mean[201], std[201]).tolist()
+
         acc_y = sample[251:301][bool_mask[251:301]].tolist()
+        acc_y = cls._denormalize_array(cls,np.asarray(acc_y), mean[251], std[251]).tolist()
+
         acc_z = sample[301:351][bool_mask[301:351]].tolist()
+        acc_z = cls._denormalize_array(cls,np.asarray(acc_z), mean[301], std[301]).tolist()
 
         # Create the instance
         instance = cls(
@@ -121,6 +137,8 @@ class Curve:
         # Set optional attributes
         instance.latent_variable = latent_variable
         instance.num_cluster = num_cluster
+
+        
         
         return instance
 
@@ -129,6 +147,11 @@ class Curve:
     #                   Metodi privati                      #
     #########################################################
 
+    def _denormalize_array(self, arr: np.ndarray, mean: float, std: float) -> np.ndarray:
+        return (arr * std) + mean
+    
+    def _denormalize_value(self, value: float, mean: float, std: float) -> float:
+        return (value * std) + mean
 
     def print(self):
         print(f"[!] apex:{self.apex_dist}; start: {self.distance[0]} -> end: {self.distance[-1]}")

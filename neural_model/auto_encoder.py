@@ -64,23 +64,29 @@ class AutoEncoder(nn.Module):
         self.input_dim = input_dim
         self.latent_dim = latent_dim
         self.loss_function = MaskedMSELoss().to(device)
+        self.to(device)
 
         # Encoder: comprime x -> z (latent space)
         self.encoder = nn.Sequential(
-            nn.Linear(input_dim, 256),
-            nn.ReLU(),
-            nn.Linear(256, 128),
-            nn.ReLU(),
-            nn.Linear(128, latent_dim),
+            nn.Linear(input_dim, 192),
+            nn.BatchNorm1d(192),
+            nn.LeakyReLU(0.1, inplace=True),
+            nn.Linear(192, 96),
+            nn.BatchNorm1d(96),
+            nn.LeakyReLU(0.1, inplace=True),
+            nn.Linear(96, latent_dim),
         )
 
-        # Decoder: ricostruisce z -> x_hat
         self.decoder = nn.Sequential(
-            nn.Linear(latent_dim, 128),
-            nn.ReLU(),
-            nn.Linear(128, 256),
-            nn.ReLU(),
-            nn.Linear(256, input_dim)
+            nn.Linear(latent_dim, 96),
+            nn.BatchNorm1d(96),
+            nn.LeakyReLU(0.1, inplace=True),
+
+            nn.Linear(96, 192),
+            nn.BatchNorm1d(192),
+            nn.LeakyReLU(0.1, inplace=True),
+
+            nn.Linear(192, input_dim)
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:

@@ -25,17 +25,17 @@ from sklearn.cluster import KMeans
 from auto_encoder import AutoEncoder
 
 # Configuration constants
-DATASET_PATH = "data\\dataset\\normalized_dataset.npz"
-ENCODER_WEIGHTS_PATH = "neural_model\\Pesi\\encoder2.pth"
-SAVE_ENCODER_PATH = "neural_model\\Pesi\\encoder2.pth"  # Path for saving new trained weights
-LATENT_DIM = 64
+DATASET_PATH = "data\\dataset\\normalized_dataset2.npz"
+ENCODER_WEIGHTS_PATH = "neural_model\\Pesi\\encoder3.pth"
+SAVE_ENCODER_PATH = "neural_model\\Pesi\\encoder3.pth"  # Path for saving new trained weights
+LATENT_DIM = 32
 NUM_SAMPLES = 1000
 NUM_CLUSTERS = 3
 RANDOM_STATE = 0
 
 # Training configuration
-TRAIN_MODEL = False  # Set to True to train the model instead of loading weights
-SAVE_WEIGHTS = False  # Set to True to save weights after training
+TRAIN_MODEL = True  # Set to True to train the model instead of loading weights
+SAVE_WEIGHTS = True  # Set to True to save weights after training
 LEARNING_RATE = 0.001
 WEIGHT_DECAY = 0.0001
 NUM_EPOCHS = 10
@@ -54,11 +54,13 @@ def load_dataset(path: str) -> tuple[np.ndarray, np.ndarray]:
     dataset = np.load(path, allow_pickle=True)
     data = dataset["data"]
     mask = dataset["mask"]
+    mean = dataset["mean"]
+    std = dataset["std"]
     
     print(f"Data shape: {data.shape}")
     print(f"Mask shape: {mask.shape}")
     
-    return data, mask
+    return data, mask, mean, std
 
 
 def load_model(input_dim: int, latent_dim: int, weights_path: str) -> AutoEncoder:
@@ -137,7 +139,7 @@ def save_model_weights(model: AutoEncoder, save_path: str):
     print(f"Encoder weights saved to {save_path}")
 
 
-def encode_data(model: AutoEncoder, data: np.ndarray, mask: list, num_samples: int) -> tuple[list, np.ndarray]:
+def encode_data(model: AutoEncoder, data: np.ndarray, mask: list, mean : list, std : list, num_samples: int) -> tuple[list, np.ndarray]:
     """
     Encode data samples into the latent space.
     
@@ -154,14 +156,16 @@ def encode_data(model: AutoEncoder, data: np.ndarray, mask: list, num_samples: i
     latent_vectors = []
     
     with torch.no_grad():
+        model.eval()  # Ensure model is in eval mode
         for i, sample in enumerate(data[:num_samples]):
-            # Convert to tensor and encode
-            sample_tensor = torch.tensor(np.atleast_1d(sample), dtype=torch.float32)
+            # Convert to tensor, add batch dimension and move to device
+            sample_tensor = torch.tensor(np.atleast_2d(sample), dtype=torch.float32).to(next(model.parameters()).device)
+            
             latent_vector = model.encode(sample_tensor)
-            latent_np = latent_vector.cpu().numpy()
+            latent_np = latent_vector.squeeze(0).cpu().numpy() # Squeeze to remove batch dim for storage
             
             # Create Curve object
-            curva = Curve.from_sample(sample, mask[i], latent_np)
+            curva = Curve.from_norm_data(sample, mask[i], mean, std, latent_np)
             curves.append(curva)
             latent_vectors.append(latent_np)
     
@@ -309,7 +313,7 @@ def main():
     
     # Load dataset
     print("\n[1/7] Loading dataset...")
-    data, mask = load_dataset(DATASET_PATH)
+    data, mask, mean, std = load_dataset(DATASET_PATH)
     
     # Initialize or load model
     if TRAIN_MODEL:
@@ -327,13 +331,15 @@ def main():
         # Save weights if requested
         if SAVE_WEIGHTS:
             save_model_weights(model, SAVE_ENCODER_PATH)
+        
+        model.eval() # Ensure evaluation mode
     else:
         print("\n[2/7] Loading pre-trained autoencoder model...")
         model = load_model(data.shape[1], LATENT_DIM, ENCODER_WEIGHTS_PATH)
     
     # Encode data into latent space
     print("\n[3/7] Encoding data into latent space...")
-    curves, latent_space = encode_data(model, data, mask, NUM_SAMPLES)
+    curves, latent_space = encode_data(model, data, mask, mean, std, NUM_SAMPLES)
     
 
     # Visualize latent space without clustering
@@ -350,12 +356,38 @@ def main():
     plot_clusters_2d(latent_space, clusters)
     plot_clusters_3d(latent_space, clusters)
 
-    print("\n[7/7] Visualizing Curves...")
-    for i in range(0 , len(curves)):
-        print(f"Clutser:{curves[i].num_cluster}")
-        curves[i].plot_all()
+    # print("\n[7/7] Visualizing Curves...")
+    # for i in range(0 , len(curves)):
+    #     if curves[i].num_cluster == 1:
+    #         print(f"Clutser:{curves[i].num_cluster}")
+    #         curves[i].plot_all()
 
     
+    print("\n[7/7] Media Cluster...")
+    cluster_0 = []
+    cluster_1 = []
+    cluster_2 = []
+    
+    for curve in curves:
+        if curve.num_cluster == 0:
+            cluster_0.append(curve.pushing_score())
+        elif curve.num_cluster == 1:
+            cluster_1.append(curve.pushing_score())
+        else:
+            cluster_2.append(curve.pushing_score())
+    
+    print("Cluster 0:")
+    print(f"\t\tMedia : {np.asarray(cluster_0).mean()}")
+    print(f"\t\tStd : {np.asarray(cluster_0).std()}")
+
+    print("Cluster 1:")
+    print(f"\t\tMedia : {np.asarray(cluster_1).mean()}")
+    print(f"\t\tStd : {np.asarray(cluster_1).std()}")
+
+    print("Cluster 2:")
+    print(f"\t\tMedia : {np.asarray(cluster_2).mean()}")
+    print(f"\t\tStd : {np.asarray(cluster_2).std()}")
+
     print("\n" + "=" * 60)
     print("Analysis complete!")
     print("=" * 60)
