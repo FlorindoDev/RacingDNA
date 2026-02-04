@@ -26,9 +26,10 @@ from auto_encoder import AutoEncoder
 from deep_embedded_clustering import DECAutoEncoder
 
 # Configuration constants
-DATASET_PATH = "data\\dataset\\normalized_dataset.npz"
+DATASET_PATH = "data\\dataset\\normalized_dataset_per_corner.npz"
 ENCODER_WEIGHTS_PATH = "neural_model\\Pesi\\encoder3.pth"
 SAVE_ENCODER_PATH = "neural_model\\Pesi\\encoder3.pth"  # Path for saving new trained weights
+DEC_MODEL_PATH = "neural_model\\Pesi\\dec_model.pth"  # Path for DEC model (encoder + decoder + clustering)
 LATENT_DIM = 32
 NUM_SAMPLES = 1000
 NUM_CLUSTERS = 3
@@ -43,8 +44,8 @@ NUM_EPOCHS = 10
 
 # DEC Configuration
 USE_DEC = True  # Set to True to use Deep Embedded Clustering
-DEC_PRETRAIN_EPOCHS = 10  # Pretraining epochs (reconstruction only)
-DEC_FINETUNE_EPOCHS = 10  # Finetuning epochs (reconstruction + clustering)
+DEC_PRETRAIN_EPOCHS = 30  # Pretraining epochs (reconstruction only)
+DEC_FINETUNE_EPOCHS = 50  # Finetuning epochs (reconstruction + clustering)
 DEC_RECONSTRUCTION_WEIGHT = 0.1  # Weight for reconstruction loss in combined loss
 
 
@@ -365,12 +366,19 @@ def main():
         
         # Save weights if requested
         if SAVE_WEIGHTS:
-            save_model_weights(model, SAVE_ENCODER_PATH)
+            if USE_DEC:
+                model.save_model(DEC_MODEL_PATH)
+            else:
+                save_model_weights(model, SAVE_ENCODER_PATH)
         
         model.eval() # Ensure evaluation mode
     else:
-        print("\n[2/7] Loading pre-trained autoencoder model...")
-        model = load_model(data.shape[1], LATENT_DIM, ENCODER_WEIGHTS_PATH)
+        if USE_DEC:
+            print("\n[2/7] Loading pre-trained DEC model...")
+            model = DECAutoEncoder.load_model(DEC_MODEL_PATH)
+        else:
+            print("\n[2/7] Loading pre-trained autoencoder model...")
+            model = load_model(data.shape[1], LATENT_DIM, ENCODER_WEIGHTS_PATH)
     
     # Encode data into latent space
     print("\n[3/7] Encoding data into latent space...")

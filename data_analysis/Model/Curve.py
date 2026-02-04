@@ -60,6 +60,7 @@ class Curve:
         std: np.ndarray,
         latent_variable: Optional[List[float]] = None,
         num_cluster: Optional[int] = None,
+        denormalize: bool = False,  # Default: don't denormalize for per-corner data
     ):
         """
         sample: vettore 1D con layout:
@@ -71,45 +72,49 @@ class Curve:
           201:251 acc_x
           251:301 acc_y
           301:351 acc_z
-          352,353: compound one-hot (hard/medium) altrimenti soft
+          351:355: compound one-hot (HARD, INTERMEDIATE, MEDIUM, SOFT)
         mask: boolean mask compatibile (stesse slice)
+        denormalize: if True, denormalize using mean/std (for global normalization)
+                     if False, use normalized values directly (for per-corner normalization)
         """
         compound = ""
-        # compound
-        if sample[352] != 0:
+        # compound - check indices for one-hot encoding
+        if len(sample) > 354 and sample[351] != 0:
             compound = "HARD"
-        elif sample[353] != 0:
+        elif len(sample) > 354 and sample[352] != 0:
             compound = "INTERMEDIATE"
-        elif sample[354] != 0:
+        elif len(sample) > 354 and sample[353] != 0:
             compound = "MEDIUM"
-        else:
+        elif len(sample) > 354 and sample[354] != 0:
             compound = "SOFT"
+        else:
+            compound = "UNKNOWN"
 
         bool_mask = mask.astype(bool)
 
-        life = int(sample[0])  # se life non è mascherato, meglio così
-        life = cls._denormalize_value(cls,life, mean[0], std[0]) 
-        
+        # Extract arrays using mask
+        life_val = sample[0]
         speed = sample[1:51][bool_mask[1:51]].tolist()
-        speed = cls._denormalize_array(cls,np.asarray(speed), mean[1], std[1]).tolist()
-
         rpm = sample[51:101][bool_mask[51:101]].tolist()
-        rpm = cls._denormalize_array(cls,np.asarray(rpm), mean[51], std[51]).tolist()
-
         throttle = sample[101:151][bool_mask[101:151]].tolist()
-        throttle = cls._denormalize_array(cls,np.asarray(throttle), mean[101], std[101]).tolist()
-        
         brake = sample[151:201][bool_mask[151:201]].tolist()
-        brake = cls._denormalize_array(cls,np.asarray(brake), mean[151], std[151]).tolist()
-
         acc_x = sample[201:251][bool_mask[201:251]].tolist()
-        acc_x = cls._denormalize_array(cls,np.asarray(acc_x), mean[201], std[201]).tolist()
-
         acc_y = sample[251:301][bool_mask[251:301]].tolist()
-        acc_y = cls._denormalize_array(cls,np.asarray(acc_y), mean[251], std[251]).tolist()
-
         acc_z = sample[301:351][bool_mask[301:351]].tolist()
-        acc_z = cls._denormalize_array(cls,np.asarray(acc_z), mean[301], std[301]).tolist()
+        
+        # Denormalize only if requested (for backward compatibility with global normalization)
+        if denormalize:
+            life = int(cls._denormalize_value(cls, life_val, mean[0], std[0]))
+            speed = cls._denormalize_array(cls, np.asarray(speed), mean[1], std[1]).tolist()
+            rpm = cls._denormalize_array(cls, np.asarray(rpm), mean[51], std[51]).tolist()
+            throttle = cls._denormalize_array(cls, np.asarray(throttle), mean[101], std[101]).tolist()
+            brake = cls._denormalize_array(cls, np.asarray(brake), mean[151], std[151]).tolist()
+            acc_x = cls._denormalize_array(cls, np.asarray(acc_x), mean[201], std[201]).tolist()
+            acc_y = cls._denormalize_array(cls, np.asarray(acc_y), mean[251], std[251]).tolist()
+            acc_z = cls._denormalize_array(cls, np.asarray(acc_z), mean[301], std[301]).tolist()
+        else:
+            # Use normalized values directly (for per-corner normalization)
+            life = int(life_val) if life_val > 0 else 0
 
         # Create the instance
         instance = cls(

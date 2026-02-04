@@ -404,3 +404,57 @@ class DECAutoEncoder(AutoEncoder):
     def get_cluster_centers(self) -> np.ndarray:
         """Get current cluster centers."""
         return self.clustering_layer.cluster_centers.detach().cpu().numpy()
+    
+    def save_model(self, path: str) -> None:
+        """
+        Save complete DEC model (encoder + decoder + clustering layer).
+        
+        Args:
+            path: Path to save the model (e.g., 'model.pth')
+        """
+        state = {
+            'encoder_state_dict': self.encoder.state_dict(),
+            'decoder_state_dict': self.decoder.state_dict(),
+            'clustering_layer_state_dict': self.clustering_layer.state_dict(),
+            'input_dim': self.input_dim,
+            'latent_dim': self.latent_dim,
+            'n_clusters': self.n_clusters,
+            'pretrained': self.pretrained,
+            'dec_trained': self.dec_trained,
+        }
+        torch.save(state, path)
+        print(f"DEC model saved to {path}")
+    
+    @classmethod
+    def load_model(cls, path: str) -> 'DECAutoEncoder':
+        """
+        Load complete DEC model from file.
+        
+        Args:
+            path: Path to the saved model
+            
+        Returns:
+            Loaded DECAutoEncoder instance
+        """
+        state = torch.load(path, map_location=device)
+        
+        # Create model with saved dimensions
+        model = cls(
+            input_dim=state['input_dim'],
+            latent_dim=state['latent_dim'],
+            n_clusters=state['n_clusters']
+        )
+        
+        # Load state dicts
+        model.encoder.load_state_dict(state['encoder_state_dict'])
+        model.decoder.load_state_dict(state['decoder_state_dict'])
+        model.clustering_layer.load_state_dict(state['clustering_layer_state_dict'])
+        
+        # Restore flags
+        model.pretrained = state.get('pretrained', True)
+        model.dec_trained = state.get('dec_trained', True)
+        
+        model.eval()
+        print(f"DEC model loaded from {path}")
+        
+        return model
