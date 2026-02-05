@@ -4,7 +4,7 @@ import pandas as pd
 
 
 df = pd.read_csv(
-    "data/dataset/dataset_curves2.csv",   
+    "data/dataset/dataset_curves3.csv",   
     sep=",",
     encoding="utf-8",
     decimal="."

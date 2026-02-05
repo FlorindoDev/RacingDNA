@@ -23,8 +23,12 @@ except ImportError:
 # Constants
 # Assuming script is run from data_analysis/utils/ or similar depth
 # data/2025-main is at ../../data/2025-main relative to this script
-DATA_DIR = os.path.abspath(os.path.join(parent_dir, "..", "data", "2025-main"))
-OUTPUT_FILE = os.path.abspath(os.path.join(parent_dir, "..", "data", "dataset", "dataset_curves2.csv"))
+# You can add multiple data directories to this list
+DATA_DIRS = [
+    os.path.abspath(os.path.join(parent_dir, "..", "data", "2025-main")),
+    os.path.abspath(os.path.join(parent_dir, "..", "data", "2024-main")),
+]
+OUTPUT_FILE = os.path.abspath(os.path.join(parent_dir, "..", "data", "dataset", "dataset_curves3.csv"))
 MAX_POINTS = 50
 PADDING = -1000
 
@@ -46,10 +50,10 @@ def get_padded_array(arr, max_len=MAX_POINTS):
     else:
         return np.pad(arr, (0, max_len - len(arr)), 'constant', constant_values=PADDING)
 
-def process_grand_prix(gp_path, drivers=None):
+def process_grand_prix(gp_path, drivers=None, session="Race"):
     """Processes a single Grand Prix directory."""
     gp_name = os.path.basename(gp_path)
-    race_path = os.path.join(gp_path, "Race")
+    race_path = os.path.join(gp_path, session)
     
     if not os.path.exists(race_path):
         return []
@@ -149,10 +153,6 @@ def process_grand_prix(gp_path, drivers=None):
     return gp_curves_data
 
 def main():
-    if not os.path.exists(DATA_DIR):
-        print(f"Data directory not found: {DATA_DIR}")
-        return
-
     # Initialize output file: remove if exists to start fresh
     if os.path.exists(OUTPUT_FILE):
         os.remove(OUTPUT_FILE)
@@ -161,45 +161,54 @@ def main():
     total_curves = 0
     header_written = False
     
-    # Iterate through possible Grand Prix directories
-    items = os.listdir(DATA_DIR)
-    # Sort items to ensure deterministic order if needed, or just standard os.listdir
-    items.sort()
-    
-    for item in items:
-        item_path = os.path.join(DATA_DIR, item)
-        if os.path.isdir(item_path) and "Grand Prix" in item:
-            # Process one Grand Prix
-            #gp_data = process_grand_prix(item_path,["LEC", "HAM"])
-            gp_data = process_grand_prix(item_path)
-            
-            if not gp_data:
-                continue
-            
-            
-            print(f"Creating DataFrame... ")
-            # Convert to DataFrame
-            df = pd.DataFrame(gp_data)
-            
-            # Save incrementally
-            try:
-                print(f"Saveing on CSV... ")
-                # Append mode 'a', header only if not written yet
-                df.to_csv(OUTPUT_FILE, mode='a', index=False, chunksize=10000,header=not header_written)
-                header_written = True
+    # Iterate through all data directories
+    for data_dir in DATA_DIRS:
+        if not os.path.exists(data_dir):
+            print(f"Data directory not found, skipping: {data_dir}")
+            continue
+        
+        print(f"\n--- Processing data directory: {data_dir} ---")
+        
+        # Iterate through possible Grand Prix directories
+        items = os.listdir(data_dir)
+        # Sort items to ensure deterministic order if needed, or just standard os.listdir
+        items.sort()
+        
+        for item in items:
+            item_path = os.path.join(data_dir, item)
+            if os.path.isdir(item_path) and "Grand Prix" in item:
+                # Process one Grand Prix
+                #gp_data = process_grand_prix(item_path,["LEC", "HAM"])
+                gp_data = process_grand_prix(gp_path=item_path,session="Qualifying")
+                gp_data += process_grand_prix(gp_path=item_path,session="Race")
                 
-                count = len(df)
+                if not gp_data:
+                    continue
                 
-                total_curves += count
-                print(f"Saved {count} curves from {item}. Total so far: {total_curves}")
                 
-                # Free memory explicitly
-                del df
-                del gp_data
-                gc.collect()
+                print(f"Creating DataFrame... ")
+                # Convert to DataFrame
+                df = pd.DataFrame(gp_data)
                 
-            except Exception as e:
-                print(f"Error saving CSV for {item}: {e}")
+                # Save incrementally
+                try:
+                    print(f"Saveing on CSV... ")
+                    # Append mode 'a', header only if not written yet
+                    df.to_csv(OUTPUT_FILE, mode='a', index=False, chunksize=10000,header=not header_written)
+                    header_written = True
+                    
+                    count = len(df)
+                    
+                    total_curves += count
+                    print(f"Saved {count} curves from {item}. Total so far: {total_curves}")
+                    
+                    # Free memory explicitly
+                    del df
+                    del gp_data
+                    gc.collect()
+                    
+                except Exception as e:
+                    print(f"Error saving CSV for {item}: {e}")
 
     if total_curves == 0:
         print("No curves extracted.")

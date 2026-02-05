@@ -25,20 +25,20 @@ from sklearn.cluster import KMeans
 from auto_encoder import AutoEncoder
 
 # Configuration constants
-DATASET_PATH = "data\\dataset\\normalized_dataset2.npz"
-ENCODER_WEIGHTS_PATH = "neural_model\\Pesi\\encoder3.pth"
-SAVE_ENCODER_PATH = "neural_model\\Pesi\\encoder3.pth"  # Path for saving new trained weights
-LATENT_DIM = 32
-NUM_SAMPLES = 1000
+DATASET_PATH = "data\\dataset\\normalized_dataset3.npz"
+ENCODER_WEIGHTS_PATH = "neural_model\\Pesi\\encoder4.pth"
+SAVE_ENCODER_PATH = "neural_model\\Pesi\\encoder4.pth"  # Path for saving new trained weights
+LATENT_DIM = 64
+NUM_SAMPLES = 1127865
 NUM_CLUSTERS = 3
 RANDOM_STATE = 0
 
 # Training configuration
-TRAIN_MODEL = True  # Set to True to train the model instead of loading weights
+TRAIN_MODEL = False  # Set to True to train the model instead of loading weights
 SAVE_WEIGHTS = True  # Set to True to save weights after training
 LEARNING_RATE = 0.001
 WEIGHT_DECAY = 0.0001
-NUM_EPOCHS = 10
+NUM_EPOCHS = 20
 
 
 def load_dataset(path: str) -> tuple[np.ndarray, np.ndarray]:

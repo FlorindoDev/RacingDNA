@@ -181,9 +181,11 @@ class CurveDetector:
             if in_curve and curve_end_idx is None:
                 curve_end_idx = end_win_idx
 
-        if not self.isApexInInterval(curve_end_idx, curve_start_idx):
-            curve_end_idx = None
-            curve_start_idx = None 
+        if curve_start_idx is not None:
+            if not self.isApexInInterval(curve_end_idx, curve_start_idx):
+                curve_end_idx = None
+                curve_start_idx = None 
+        
         
 
         return curve_start_idx, curve_end_idx

@@ -181,7 +181,7 @@ class Curve:
 
     def brake_intensity(self) -> np.ndarray:
         """Intensità frenata (0 quando non frena, alto quando frena forte)"""
-        return self.brake * np.abs(np.minimum(self.acc_x, 0))
+        return self.brake * np.abs(np.minimum(self.acc_x, 0)) #confronta acc_x con zero e ritorna il più piccolo 
 
     def throttle_rate(self) -> np.ndarray:
         """Velocità di applicazione throttle (quanto velocemente apre/chiude)"""
@@ -210,26 +210,35 @@ class Curve:
         return self.life[0] - self.life[-1] if len(self.life) > 0 else 0
 
     #########################################################
-    #                Metriche più complesse                  #
+    #                Metriche più complesse                 #
     #########################################################
 
-    def grip_usage_percent(self, max_g: float = 5.0) -> np.ndarray:
+    def grip_usage_percent(self, max_g: float = 6.5) -> np.ndarray:
         """
         Percentuale utilizzo cerchio di aderenza
-        max_g: massimo G teorico raggiungibile (default 5.0)
+        max_g: massimo G teorico raggiungibile (default 6.5)
         Ritorna: array con % utilizzo grip momento per momento
         """
         return (self.total_g_xy() / max_g) * 100
 
     def aggressivity_index(self) -> np.ndarray:
         """
-        Indice aggressività: quanto stress sulle gomme rispetto al loro stato
-        Alto = sta spingendo forte con gomme consumate (rischioso)
+        Indice aggressività relativo al grip disponibile.
+        Stima quanto stai usando del grip residuo della gomma.
         """
-        life_arr = np.asarray(self.life)
-        life_factor = np.maximum(100 - life_arr, 1)  # evita divisione per zero
+        # Stima degradazione grip: perde circa 1.5-2% per giro
+        DEGRADATION_PER_LAP = 0.02  # 2% perdita grip per giro
+        
+        # Grip residuo stimato (da 1.0 a ~0.4 per gomme molto vecchie)
+        grip_remaining = max(1.0 - (self.life * DEGRADATION_PER_LAP), 0.4)
+        
+        # G massimi teorici (es. 6.5G) scalati per grip residuo
+        MAX_G = 6.5
+        available_g = MAX_G * grip_remaining
+        
+        # Quanto stai usando del grip disponibile
         acc_total = np.sqrt(self.acc_x**2 + self.acc_y**2)
-        return acc_total / life_factor
+        return (acc_total / available_g) * 100  # percentuale utilizzo
 
     def smoothness_index(self, window: int = 20) -> float:
         """
@@ -245,8 +254,7 @@ class Curve:
             window = max(len(acc_total) // 2, 2)
         
         # Rolling standard deviation
-        rolling_std = np.array([np.std(acc_total[max(0, i-window):i+1]) 
-                                for i in range(len(acc_total))])
+        rolling_std = np.array([np.std(acc_total[max(0, i-window):i+1]) for i in range(len(acc_total))])
         mean_acc = np.mean(acc_total)
         
         return np.mean(rolling_std) / mean_acc if mean_acc > 0 else 0
@@ -266,39 +274,55 @@ class Curve:
         Aggressività in curva = velocità × G laterali
         Più alto = più aggressivo in curva
         """
-        in_corner = np.abs(self.lateral_g()) > lateral_g_threshold
+        lateral_g = self.lateral_g()
+        in_corner = np.abs(lateral_g) > lateral_g_threshold
         if not np.any(in_corner):
             return 0.0
         
         avg_speed = np.mean(self.speed[in_corner])
-        avg_lat_g = np.mean(np.abs(self.lateral_g()[in_corner]))
+        avg_lat_g = np.mean(np.abs(lateral_g[in_corner]))
         
         return avg_speed * avg_lat_g
 
     def tire_stress_score(self) -> float:
         """
         Score di stress sulle gomme
-        Combina accelerazione totale, velocità e degrado
+        Combina accelerazione totale, velocità e usura
+        Gomme più vecchie = stress amplificato (più rischioso)
         """
         acc_total = np.sqrt(self.acc_x**2 + self.acc_y**2)
-        life_arr = np.asarray(self.life)
-        stress = acc_total * self.speed / np.maximum(life_arr, 1)
+        # Moltiplicatore usura: da 1.0 (gomma nuova) a ~2.0 (30 giri)
+        wear_multiplier = 1 + (self.life / 30)
+        stress = acc_total * self.speed * wear_multiplier
         return np.mean(stress)
 
     def braking_aggression(self) -> float:
         """
-        Aggressività in frenata
-        Combina massima decelerazione e frequenza frenate
+        Aggressività in frenata - Versione migliorata
+        Un pilota che spinge:
+        - Frena TARDI (alta velocità all'inizio frenata)
+        - Frena FORTE (alta decelerazione media)
+        - Frena BREVE (rilascio rapido)
         """
         brake = np.asarray(self.brake)
         brake_mask = brake == 1
         if not np.any(brake_mask):
             return 0.0
         
-        max_decel_g = np.abs(np.min(self.longitudinal_g()[brake_mask]))
-        brake_freq = self.brake_time_percent() / 100
+        # 1. Decelerazione MEDIA durante frenata (non solo massima)
+        avg_decel_g = np.mean(np.abs(self.longitudinal_g()[brake_mask]))
         
-        return max_decel_g * brake_freq * 100
+        # 2. Velocità all'ingresso in frenata (più alta = più aggressivo)
+        speed_at_brake = np.mean(self.speed[brake_mask])
+        speed_factor = speed_at_brake / 300  # normalizza su 300 km/h
+        
+        # 3. "Brevità" frenata: meno tempo = più aggressivo (inversione)
+        brake_brevity = 1 - (self.brake_time_percent() / 100)
+        
+        # Score combinato (pesi da calibrare)
+        score = (avg_decel_g * 20) * speed_factor * (0.5 + brake_brevity)
+        
+        return np.clip(score, 0, 100)       
             
   
     
@@ -311,8 +335,11 @@ class Curve:
         > 60: SPINTA - Sta spingendo al limite
         > 80: QUALIFICA - Massima spinta, un giro secco
         """
-        # Normalizza metriche chiave
+        # Grip usage assoluto (G totali vs max teorico)
         grip_score = np.clip(np.mean(self.grip_usage_percent()), 0, 100)
+        
+        # Aggressivity: quanto stai usando del grip DISPONIBILE (considera usura gomme)
+        aggressivity_score = np.clip(np.mean(self.aggressivity_index()), 0, 100)
         
         # Smoothness: inverti (alto smoothness = bassa spinta)
         smooth = self.smoothness_index()
@@ -329,13 +356,14 @@ class Curve:
         brake_agg = self.braking_aggression()
         brake_score = np.clip(brake_agg, 0, 100)
         
-        # Media ponderata
+        # Media ponderata (aggressivity_score pesa di più perché considera usura)
         total = (
-            grip_score * 0.25 +
-            throttle_score * 0.20 +
-            corner_score * 0.25 +
-            brake_score * 0.15 +
-            smoothness_score * 0.15
+            grip_score * 0.15 +          # G assoluti
+            aggressivity_score * 0.20 +  # G relativi al grip disponibile
+            throttle_score * 0.15 +      # Uso gas
+            corner_score * 0.20 +        # Aggressività in curva
+            brake_score * 0.15 +         # Aggressività frenata
+            smoothness_score * 0.15      # Fluidità guida
         )
         
         return np.clip(total, 0, 100)

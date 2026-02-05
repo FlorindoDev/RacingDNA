@@ -66,7 +66,26 @@ class AutoEncoder(nn.Module):
         self.loss_function = MaskedMSELoss().to(device)
         self.to(device)
 
+
+        # # Encoder: comprime x -> z (latent space)
+        # self.encoder = nn.Sequential(
+        #     nn.Linear(input_dim, 256),
+        #     nn.ReLU(),
+        #     nn.Linear(256, 128),
+        #     nn.ReLU(),
+        #     nn.Linear(128, latent_dim),
+        # )
+
+        # # Decoder: ricostruisce z -> x_hat
+        # self.decoder = nn.Sequential(
+        #     nn.Linear(latent_dim, 128),
+        #     nn.ReLU(),
+        #     nn.Linear(128, 256),
+        #     nn.ReLU(),
+        #     nn.Linear(256, input_dim)
+        # )
         # Encoder: comprime x -> z (latent space)
+        
         self.encoder = nn.Sequential(
             nn.Linear(input_dim, 192),
             nn.BatchNorm1d(192),
