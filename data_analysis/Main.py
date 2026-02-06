@@ -23,7 +23,7 @@ def main():
     """Funzione main del progetto Iot Zecconi e Gagliotti Qualifying"""
  
 
-    curve_detector = CurveDetector("data/2025-main/Abu Dhabi Grand Prix/Qualifying/NOR/2_tel.json", "data/2025-main/Abu Dhabi Grand Prix/Race/corners.json")
+    curve_detector = CurveDetector("data/2025-main/Abu Dhabi Grand Prix/Race/NOR/12_tel.json", "data/2025-main/Abu Dhabi Grand Prix/Race/corners.json")
     curves = curve_detector.calcolo_curve()
     # for i in range(0 , len(curves)):
     # #     #curves[i].plot_telemetry()

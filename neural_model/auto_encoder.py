@@ -84,8 +84,8 @@ class AutoEncoder(nn.Module):
         #     nn.ReLU(),
         #     nn.Linear(256, input_dim)
         # )
-        # Encoder: comprime x -> z (latent space)
-        
+
+        #Encoder: comprime x -> z (latent space)
         self.encoder = nn.Sequential(
             nn.Linear(input_dim, 192),
             nn.BatchNorm1d(192),

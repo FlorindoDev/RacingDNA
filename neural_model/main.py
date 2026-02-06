@@ -25,12 +25,12 @@ from sklearn.cluster import KMeans
 from auto_encoder import AutoEncoder
 
 # Configuration constants
-DATASET_PATH = "data\\dataset\\normalized_dataset3.npz"
-ENCODER_WEIGHTS_PATH = "neural_model\\Pesi\\encoder4.pth"
+DATASET_PATH = "data\\dataset\\normalized_dataset_2024_2025.npz"
+ENCODER_WEIGHTS_PATH = "neural_model\\Pesi\\weights_new_architeture.pth"
 SAVE_ENCODER_PATH = "neural_model\\Pesi\\encoder4.pth"  # Path for saving new trained weights
 LATENT_DIM = 64
-NUM_SAMPLES = 1127865
-NUM_CLUSTERS = 3
+NUM_SAMPLES = 1127865 
+NUM_CLUSTERS = 4
 RANDOM_STATE = 0
 
 # Training configuration
@@ -342,19 +342,19 @@ def main():
     curves, latent_space = encode_data(model, data, mask, mean, std, NUM_SAMPLES)
     
 
-    # Visualize latent space without clustering
-    print("\n[4/7] Visualizing latent space...")
-    plot_latent_space_2d(latent_space)
-    plot_latent_space_3d(latent_space)
+    # # Visualize latent space without clustering
+    # print("\n[4/7] Visualizing latent space...")
+    # plot_latent_space_2d(latent_space)
+    # plot_latent_space_3d(latent_space)
     
     # Perform clustering
     print("\n[5/7] Performing K-Means clustering...")
-    clusters = perform_clustering(latent_space,curves, NUM_CLUSTERS, RANDOM_STATE)
+    clusters = perform_clustering(latent_space, curves, NUM_CLUSTERS, RANDOM_STATE)
     
-    # Visualize clusters
-    print("\n[6/7] Visualizing clusters...")
-    plot_clusters_2d(latent_space, clusters)
-    plot_clusters_3d(latent_space, clusters)
+    # # Visualize clusters
+    # print("\n[6/7] Visualizing clusters...")
+    # plot_clusters_2d(latent_space, clusters)
+    # plot_clusters_3d(latent_space, clusters)
 
     # print("\n[7/7] Visualizing Curves...")
     # for i in range(0 , len(curves)):
@@ -364,29 +364,34 @@ def main():
 
     
     print("\n[7/7] Media Cluster...")
-    cluster_0 = []
-    cluster_1 = []
-    cluster_2 = []
+    cluster_0 = [curve.pushing_score() for curve in curves if curve.num_cluster == 0]
+    cluster_1 = [curve.pushing_score() for curve in curves if curve.num_cluster == 1]
+    cluster_2 = [curve.pushing_score() for curve in curves if curve.num_cluster == 2]
+    cluster_3 = [curve.pushing_score() for curve in curves if curve.num_cluster == 3]
     
-    for curve in curves:
-        if curve.num_cluster == 0:
-            cluster_0.append(curve.pushing_score())
-        elif curve.num_cluster == 1:
-            cluster_1.append(curve.pushing_score())
-        else:
-            cluster_2.append(curve.pushing_score())
-    
+    cluster_0 = np.asarray(cluster_0)
+    cluster_1 = np.asarray(cluster_1)
+    cluster_2 = np.asarray(cluster_2)
+    cluster_3 = np.asarray(cluster_3)
     print("Cluster 0:")
-    print(f"\t\tMedia : {np.asarray(cluster_0).mean()}")
-    print(f"\t\tStd : {np.asarray(cluster_0).std()}")
+    print(f"\t\tGrandezza : {cluster_0.shape}")
+    print(f"\t\tMedia : {cluster_0.mean()}")
+    print(f"\t\tStd : {cluster_0.std()}")
 
     print("Cluster 1:")
-    print(f"\t\tMedia : {np.asarray(cluster_1).mean()}")
-    print(f"\t\tStd : {np.asarray(cluster_1).std()}")
+    print(f"\t\tGrandezza : {cluster_1.shape}")
+    print(f"\t\tMedia : {cluster_1.mean()}")
+    print(f"\t\tStd : {cluster_1.std()}")
 
     print("Cluster 2:")
-    print(f"\t\tMedia : {np.asarray(cluster_2).mean()}")
-    print(f"\t\tStd : {np.asarray(cluster_2).std()}")
+    print(f"\t\tGrandezza : {cluster_2.shape}")
+    print(f"\t\tMedia : {cluster_2.mean()}")
+    print(f"\t\tStd : {cluster_2.std()}")
+
+    print("Cluster 3:")
+    print(f"\t\tGrandezza : {cluster_3.shape}")
+    print(f"\t\tMedia : {cluster_3.mean()}")
+    print(f"\t\tStd : {cluster_3.std()}")
 
     print("\n" + "=" * 60)
     print("Analysis complete!")

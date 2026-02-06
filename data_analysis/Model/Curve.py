@@ -341,9 +341,10 @@ class Curve:
         # Aggressivity: quanto stai usando del grip DISPONIBILE (considera usura gomme)
         aggressivity_score = np.clip(np.mean(self.aggressivity_index()), 0, 100)
         
-        # Smoothness: inverti (alto smoothness = bassa spinta)
+        # Smoothness: alto smoothness = guida nervosa = spinta alta
+        # (smoothness_index alto significa variazioni frequenti nelle accelerazioni)
         smooth = self.smoothness_index()
-        smoothness_score = np.clip((1 - smooth) * 100, 0, 100)
+        smoothness_score = np.clip(smooth * 100, 0, 100)
         
         # Throttle usage
         throttle_score = self.full_throttle_percent()
@@ -356,15 +357,27 @@ class Curve:
         brake_agg = self.braking_aggression()
         brake_score = np.clip(brake_agg, 0, 100)
         
-        # Media ponderata (aggressivity_score pesa di più perché considera usura)
-        total = (
-            grip_score * 0.15 +          # G assoluti
-            aggressivity_score * 0.20 +  # G relativi al grip disponibile
-            throttle_score * 0.15 +      # Uso gas
+        # Fattore velocità: penalizza giri lenti (outlap, inlap, gestione estrema)
+        # Reference speed per curve F1: ~120 km/h media in curva durante spinta
+        avg_spd = self.avg_speed()
+        REFERENCE_SPEED = 120.0
+        speed_factor = np.clip(avg_spd / REFERENCE_SPEED, 0.0, 1.0)
+        
+        # Media ponderata - pesi ribilanciati:
+        # - grip e aggressivity pesano di più (sono la misura diretta dei G)
+        # - corner_score peso aumentato (riflette velocità in curva)
+        # - smoothness ridotto (meno affidabile come indicatore)
+        raw_score = (
+            grip_score * 0.25 +          # G assoluti - peso principale
+            aggressivity_score * 0.25 +  # G relativi al grip disponibile
+            throttle_score * 0.10 +      # Uso gas
             corner_score * 0.20 +        # Aggressività in curva
-            brake_score * 0.15 +         # Aggressività frenata
-            smoothness_score * 0.15      # Fluidità guida
+            brake_score * 0.10 +         # Aggressività frenata
+            smoothness_score * 0.10      # Variabilità guida
         )
+        
+        # Applica penalità velocità: score finale scalato per speed_factor
+        total = raw_score * speed_factor
         
         return np.clip(total, 0, 100)
     
