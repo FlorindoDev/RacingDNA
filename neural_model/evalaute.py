@@ -21,10 +21,10 @@ from auto_encoder import AutoEncoder
 
 # ==================== CONFIGURATION ====================
 # Paths
-TELEMETRY_PATH = "data/2025-main/Las Vegas Grand Prix/Qualifying/NOR/2_tel.json"
-CORNERS_PATH = "data/2025-main/Las Vegas Grand Prix/Race/corners.json"
-ENCODER_WEIGHTS_PATH = "neural_model/Pesi/weights_new_architeture.pth"
-DATASET_PATH = "data/dataset/normalized_dataset_2024_2025.npz"
+TELEMETRY_PATH = "data/2025-main/Australian Grand Prix/Qualifying/NOR/19_tel.json"
+CORNERS_PATH = "data/2025-main/Australian Grand Prix/Race/corners.json"
+ENCODER_WEIGHTS_PATH = "neural_model/Pesi/test2.pth"
+DATASET_PATH = "data/dataset/normalized_dataset_2024_2025_WITH_WET.npz"
 
 # Model configuration
 LATENT_DIM = 64
@@ -33,7 +33,7 @@ NUM_CLUSTERS = 4
 # Feature configuration (same as dataset_normalization.py)
 PADDING_VALUE = -1000.0
 MAX_SAMPLES_PER_CURVE = 50  # Number of samples per feature
-TARGET_COMPOUNDS = ['HARD', 'INTERMEDIATE', 'MEDIUM', 'SOFT']
+TARGET_COMPOUNDS = ['HARD', 'INTERMEDIATE', 'WET', 'MEDIUM', 'SOFT']
 
 
 def load_pretrained_model(input_dim: int, latent_dim: int, weights_path: str) -> AutoEncoder:
@@ -150,12 +150,13 @@ def curve_to_feature_vector(curve: Curve, columns: np.ndarray, mean: np.ndarray,
     # Compound one-hot encoding
     compound_hard = 1.0 if curve.compound == "HARD" else 0.0
     compound_inter = 1.0 if curve.compound == "INTERMEDIATE" else 0.0
+    compound_wet = 1.0 if curve.compound == "WET" else 0.0
     compound_medium = 1.0 if curve.compound == "MEDIUM" else 0.0
     compound_soft = 1.0 if curve.compound == "SOFT" else 0.0
     
     # Build raw feature vector
     raw_features = [life] + speed + rpm + throttle + brake + acc_x + acc_y + acc_z + \
-                   [compound_hard, compound_inter, compound_medium, compound_soft]
+                   [compound_hard, compound_inter, compound_wet, compound_medium, compound_soft]
     raw_features = np.array(raw_features, dtype=np.float64)
     
     # Build mask (1 for valid data, 0 for padding)

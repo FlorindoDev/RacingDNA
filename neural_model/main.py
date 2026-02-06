@@ -21,12 +21,12 @@ from mpl_toolkits.mplot3d import Axes3D
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
 
-
 from auto_encoder import AutoEncoder
+from dataset_loader import load_and_split_dataset, load_dataset
 
 # Configuration constants
-DATASET_PATH = "data\\dataset\\normalized_dataset_2024_2025.npz"
-ENCODER_WEIGHTS_PATH = "neural_model\\Pesi\\weights_new_architeture.pth"
+DATASET_PATH = "data\\dataset\\normalized_dataset_2024_2025_WITH_WET.npz"
+ENCODER_WEIGHTS_PATH = "neural_model\\Pesi\\test1.pth"
 SAVE_ENCODER_PATH = "neural_model\\Pesi\\encoder4.pth"  # Path for saving new trained weights
 LATENT_DIM = 64
 NUM_SAMPLES = 1127865 
@@ -36,31 +36,10 @@ RANDOM_STATE = 0
 # Training configuration
 TRAIN_MODEL = False  # Set to True to train the model instead of loading weights
 SAVE_WEIGHTS = True  # Set to True to save weights after training
-LEARNING_RATE = 0.001
-WEIGHT_DECAY = 0.0001
-NUM_EPOCHS = 20
-
-
-def load_dataset(path: str) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Load the normalized dataset from an NPZ file.
-    
-    Args:
-        path: Path to the .npz file containing the dataset
-        
-    Returns:
-        Tuple of (data, mask) arrays
-    """
-    dataset = np.load(path, allow_pickle=True)
-    data = dataset["data"]
-    mask = dataset["mask"]
-    mean = dataset["mean"]
-    std = dataset["std"]
-    
-    print(f"Data shape: {data.shape}")
-    print(f"Mask shape: {mask.shape}")
-    
-    return data, mask, mean, std
+LEARNING_RATE = 0.002
+WEIGHT_DECAY = 0.0002
+NUM_EPOCHS = 50
+TRAIN_RATIO = 0.8  # Percentuale dati per training (resto per validation)
 
 
 def load_model(input_dim: int, latent_dim: int, weights_path: str) -> AutoEncoder:
@@ -86,19 +65,23 @@ def load_model(input_dim: int, latent_dim: int, weights_path: str) -> AutoEncode
 
 def train_model(
     model: AutoEncoder,
-    data: np.ndarray,
-    mask: np.ndarray,
+    train_data: np.ndarray,
+    train_mask: np.ndarray,
+    val_data: np.ndarray,
+    val_mask: np.ndarray,
     epochs: int,
     learning_rate: float,
     weight_decay: float
 ) -> AutoEncoder:
     """
-    Train the AutoEncoder model.
+    Train the AutoEncoder model with validation for early stopping.
     
     Args:
         model: AutoEncoder model to train
-        data: Training data
-        mask: Mask for padding values
+        train_data: Training data
+        train_mask: Mask for training data
+        val_data: Validation data
+        val_mask: Mask for validation data
         epochs: Number of training epochs
         learning_rate: Learning rate for optimizer
         weight_decay: Weight decay for regularization
@@ -118,8 +101,10 @@ def train_model(
     model.train_model(
         optimizer=optimizer,
         epochs=epochs,
-        train_data=data,
-        mask=mask
+        train_data=train_data,
+        mask=train_mask,
+        val_data=val_data,
+        val_mask=val_mask
     )
     
     print("Training completed!")
@@ -311,18 +296,23 @@ def main():
     print("Latent Space Analysis - Driving Style Model")
     print("=" * 60)
     
-    # Load dataset
-    print("\n[1/7] Loading dataset...")
-    data, mask, mean, std = load_dataset(DATASET_PATH)
+    # Load and split dataset
+    print("\n[1/7] Loading and splitting dataset...")
+    dataset = load_and_split_dataset(DATASET_PATH, train_ratio=TRAIN_RATIO)
+    
+    # Per encoding/clustering usiamo tutti i dati originali
+    full_data, full_mask, mean, std = load_dataset(DATASET_PATH)
     
     # Initialize or load model
     if TRAIN_MODEL:
         print("\n[2/7] Initializing and training autoencoder model...")
-        model = AutoEncoder(data.shape[1], latent_dim=LATENT_DIM)
+        model = AutoEncoder(dataset.train_data.shape[1], latent_dim=LATENT_DIM)
         model = train_model(
             model=model,
-            data=data,
-            mask=mask,
+            train_data=dataset.train_data,
+            train_mask=dataset.train_mask,
+            val_data=dataset.val_data,
+            val_mask=dataset.val_mask,
             epochs=NUM_EPOCHS,
             learning_rate=LEARNING_RATE,
             weight_decay=WEIGHT_DECAY
@@ -335,11 +325,11 @@ def main():
         model.eval() # Ensure evaluation mode
     else:
         print("\n[2/7] Loading pre-trained autoencoder model...")
-        model = load_model(data.shape[1], LATENT_DIM, ENCODER_WEIGHTS_PATH)
+        model = load_model(full_data.shape[1], LATENT_DIM, ENCODER_WEIGHTS_PATH)
     
     # Encode data into latent space
     print("\n[3/7] Encoding data into latent space...")
-    curves, latent_space = encode_data(model, data, mask, mean, std, NUM_SAMPLES)
+    curves, latent_space = encode_data(model, full_data, full_mask, mean, std, NUM_SAMPLES)
     
 
     # # Visualize latent space without clustering

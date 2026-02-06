@@ -81,6 +81,8 @@ class Curve:
         elif sample[353] != 0:
             compound = "INTERMEDIATE"
         elif sample[354] != 0:
+            compound = "WET"
+        elif sample[355] != 0:
             compound = "MEDIUM"
         else:
             compound = "SOFT"
@@ -88,28 +90,15 @@ class Curve:
         bool_mask = mask.astype(bool)
 
         life = int(sample[0])  # se life non è mascherato, meglio così
-        life = cls._denormalize_value(cls,life, mean[0], std[0]) 
+        life = cls._denormalize_value(cls, life, mean[0], std[0]) 
         
-        speed = sample[1:51][bool_mask[1:51]].tolist()
-        speed = cls._denormalize_array(cls,np.asarray(speed), mean[1], std[1]).tolist()
-
-        rpm = sample[51:101][bool_mask[51:101]].tolist()
-        rpm = cls._denormalize_array(cls,np.asarray(rpm), mean[51], std[51]).tolist()
-
-        throttle = sample[101:151][bool_mask[101:151]].tolist()
-        throttle = cls._denormalize_array(cls,np.asarray(throttle), mean[101], std[101]).tolist()
-        
-        brake = sample[151:201][bool_mask[151:201]].tolist()
-        brake = cls._denormalize_array(cls,np.asarray(brake), mean[151], std[151]).tolist()
-
-        acc_x = sample[201:251][bool_mask[201:251]].tolist()
-        acc_x = cls._denormalize_array(cls,np.asarray(acc_x), mean[201], std[201]).tolist()
-
-        acc_y = sample[251:301][bool_mask[251:301]].tolist()
-        acc_y = cls._denormalize_array(cls,np.asarray(acc_y), mean[251], std[251]).tolist()
-
-        acc_z = sample[301:351][bool_mask[301:351]].tolist()
-        acc_z = cls._denormalize_array(cls,np.asarray(acc_z), mean[301], std[301]).tolist()
+        speed = cls._extract_and_denormalize(cls, 1, 51, sample, bool_mask, mean, std)
+        rpm = cls._extract_and_denormalize(cls, 51, 101, sample, bool_mask, mean, std)
+        throttle = cls._extract_and_denormalize(cls, 101, 151, sample, bool_mask, mean, std)
+        brake = cls._extract_and_denormalize(cls, 151, 201, sample, bool_mask, mean, std)
+        acc_x = cls._extract_and_denormalize(cls, 201, 251, sample, bool_mask, mean, std)
+        acc_y = cls._extract_and_denormalize(cls, 251, 301, sample, bool_mask, mean, std)
+        acc_z = cls._extract_and_denormalize(cls, 301, 351, sample, bool_mask, mean, std)
 
         # Create the instance
         instance = cls(
@@ -152,6 +141,32 @@ class Curve:
     
     def _denormalize_value(self, value: float, mean: float, std: float) -> float:
         return (value * std) + mean
+    
+    def _extract_and_denormalize(
+        self,
+        start: int,
+        end: int,
+        sample: np.ndarray,
+        bool_mask: np.ndarray,
+        mean: np.ndarray,
+        std: np.ndarray
+    ) -> list:
+        """
+        Estrae una porzione dell'array sample[start:end], applica la maschera e denormalizza.
+        
+        Args:
+            start: indice di inizio (incluso)
+            end: indice di fine (escluso)
+            sample: array completo dei dati normalizzati
+            bool_mask: maschera booleana per filtrare i valori validi
+            mean: array delle medie per la denormalizzazione
+            std: array delle deviazioni standard per la denormalizzazione
+        
+        Returns:
+            Lista dei valori estratti, filtrati e denormalizzati
+        """
+        extracted = sample[start:end][bool_mask[start:end]].tolist()
+        return self._denormalize_array(self, np.asarray(extracted), mean[start], std[start]).tolist()
 
     def print(self):
         print(f"[!] apex:{self.apex_dist}; start: {self.distance[0]} -> end: {self.distance[-1]}")
