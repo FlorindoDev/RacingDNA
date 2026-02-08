@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+import os
 from dataclasses import dataclass
 from sklearn.cluster import KMeans
 
@@ -22,7 +23,8 @@ class EvaluateConfig:
     telemetry_path: str = "data/2025-main/Australian Grand Prix/Qualifying/ALB/4_tel.json"
     corners_path: str = "data/2025-main/Australian Grand Prix/Race/corners.json"
     weights_path: str = "src/models/weights/VAE_32z_weights.pth"
-    dataset_path: str = "data/dataset/normalized_dataset_2024_2025_WITH_WET.npz"
+    dataset_path: str = "data/dataset/normalized_dataset_2024_2025.npz"
+    centroids_path: str = "src/models/weights/kmeans_centroids.npy"
     
     # ----- Model -----
     use_vae: bool = True
@@ -31,6 +33,7 @@ class EvaluateConfig:
     # ----- Clustering -----
     num_clusters: int = 4
     random_state: int = 0
+    load_centroids: bool = True  # True = load centroids from file, False = fit KMeans
 
 
 CONFIG = EvaluateConfig()
@@ -51,6 +54,26 @@ def load_model(input_dim: int, config: EvaluateConfig):
     model.eval()
     print(f"Model loaded from {config.weights_path}")
     return model
+
+
+def load_kmeans_centroids(load_path: str, num_clusters: int, random_state: int = 0) -> KMeans:
+    """
+    Load KMeans centroids from a .npy file.
+    
+    Args:
+        load_path: Path to the saved centroids
+        num_clusters: Number of clusters
+        random_state: Random state for KMeans
+        
+    Returns:
+        KMeans object with pre-loaded centroids
+    """
+    centroids = np.load(load_path)
+    kmeans = KMeans(n_clusters=num_clusters, random_state=random_state, n_init=1)
+    kmeans.cluster_centers_ = centroids
+    kmeans._n_threads = 1
+    print(f"KMeans centroids loaded from {load_path}")
+    return kmeans
 
 
 def fit_kmeans(data: np.ndarray, model, config: EvaluateConfig) -> KMeans:
@@ -149,9 +172,13 @@ def main(config: EvaluateConfig = CONFIG):
         print("ERROR: No curves detected!")
         return
     
-    # 4. Fit KMeans and predict
+    # 4. Get KMeans (load or fit)
     print("\n[4/4] Clustering...")
-    kmeans = fit_kmeans(data, model, config)
+    if config.load_centroids and os.path.exists(config.centroids_path):
+        kmeans = load_kmeans_centroids(config.centroids_path, config.num_clusters, config.random_state)
+    else:
+        kmeans = fit_kmeans(data, model, config)
+    
     results = predict_clusters(normalized_curves, model, kmeans)
     
     print_results(results, config.num_clusters)

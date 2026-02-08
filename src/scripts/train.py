@@ -25,6 +25,7 @@ class TrainConfig:
     dataset_path: str = "data/dataset/normalized_dataset_2024_2025_WITH_WET.npz"
     load_weights_path: str = "src/models/weights/VAE_32z_weights.pth"
     save_weights_path: str = "src/models/weights/VAE_32z_weights.pth"
+    centroids_path: str = "src/models/weights/kmeans_centroids.npy"
     
     # ----- Model -----
     use_vae: bool = True              # True = VAE, False = AutoEncoder
@@ -43,6 +44,8 @@ class TrainConfig:
     num_samples: int = 1127865        # Number of samples to encode
     num_clusters: int = 4
     random_state: int = 0
+    save_centroids: bool = True       # True = save centroids after clustering
+    load_centroids: bool = False      # True = load centroids instead of fitting
     
     # ----- Visualization -----
     show_latent_space_2d: bool = False
@@ -57,9 +60,10 @@ class TrainConfig:
 # =============================================================================
 CONFIG = TrainConfig(
     # Paths
-    dataset_path="data/dataset/normalized_dataset_2024_2025_WITH_WET.npz",
+    dataset_path="data/dataset/normalized_dataset_2024_2025.npz",
     load_weights_path="src/models/weights/VAE_32z_weights.pth",
     save_weights_path="src/models/weights/VAE_32z_weights.pth",
+    centroids_path="src/models/weights/kmeans_centroids.npy",
     
     # Model
     use_vae=True,
@@ -78,6 +82,8 @@ CONFIG = TrainConfig(
     num_samples=1127865,
     num_clusters=4,
     random_state=0,
+    save_centroids=True,
+    load_centroids=False,
     
     # Visualization
     show_latent_space_2d=False,
@@ -194,21 +200,71 @@ def encode_data(
     return curves, latent_space
 
 
+def save_kmeans_centroids(kmeans: KMeans, save_path: str):
+    """
+    Save KMeans centroids to a .npy file.
+    
+    Args:
+        kmeans: Fitted KMeans object
+        save_path: Path to save the centroids
+    """
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    np.save(save_path, kmeans.cluster_centers_)
+    print(f"KMeans centroids saved to {save_path}")
+
+
+def load_kmeans_centroids(load_path: str, num_clusters: int, random_state: int = 0) -> KMeans:
+    """
+    Load KMeans centroids from a .npy file and create a KMeans object.
+    
+    Args:
+        load_path: Path to the saved centroids
+        num_clusters: Number of clusters
+        random_state: Random state for KMeans
+        
+    Returns:
+        KMeans object with pre-loaded centroids
+    """
+    centroids = np.load(load_path)
+    kmeans = KMeans(n_clusters=num_clusters, random_state=random_state, n_init=1)
+    # Initialize KMeans with loaded centroids
+    kmeans.cluster_centers_ = centroids
+    kmeans._n_threads = 1
+    print(f"KMeans centroids loaded from {load_path}")
+    return kmeans
+
+
 def perform_clustering(
     latent_space: np.ndarray, 
     curves: list, 
-    config: TrainConfig
-) -> np.ndarray:
-    """Perform K-Means clustering on the latent space."""
-    kmeans = KMeans(n_clusters=config.num_clusters, random_state=config.random_state)
-    clusters = kmeans.fit_predict(latent_space)
+    config: TrainConfig,
+    load_centroids: bool = False
+) -> tuple[np.ndarray, KMeans]:
+    """
+    Perform K-Means clustering on the latent space.
+    
+    Args:
+        latent_space: Encoded latent vectors
+        curves: List of Curve objects
+        config: Training configuration
+        load_centroids: If True, load centroids from file instead of fitting
+        
+    Returns:
+        Tuple of (cluster assignments, fitted KMeans object)
+    """
+    if load_centroids and os.path.exists(config.centroids_path):
+        kmeans = load_kmeans_centroids(config.centroids_path, config.num_clusters, config.random_state)
+        clusters = kmeans.predict(latent_space)
+    else:
+        kmeans = KMeans(n_clusters=config.num_clusters, random_state=config.random_state)
+        clusters = kmeans.fit_predict(latent_space)
 
     for i, num_cluster in enumerate(clusters):
         curves[i].num_cluster = num_cluster
 
     print(f"Clustering completed: {config.num_clusters} clusters identified")
     
-    return clusters
+    return clusters, kmeans
 
 
 # =============================================================================
@@ -360,7 +416,11 @@ def main(config: TrainConfig = CONFIG):
     
     # Perform clustering
     print("\n[5/7] Performing K-Means clustering...")
-    clusters = perform_clustering(latent_space, curves, config)
+    clusters, kmeans = perform_clustering(latent_space, curves, config, load_centroids=config.load_centroids)
+    
+    # Save centroids if configured
+    if config.save_centroids:
+        save_kmeans_centroids(kmeans, config.centroids_path)
     
     # Visualize clusters
     if config.show_clusters_2d or config.show_clusters_3d:
