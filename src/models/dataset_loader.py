@@ -62,7 +62,7 @@ def download_raw_telemetry_from_hf(
         local_dir=local_dir,
         allow_patterns=f"{subfolder}/**",
         force_download=force_download,
-        max_workers=1
+        max_workers=2
     )
     
     result_path = os.path.join(downloaded_path, subfolder)
