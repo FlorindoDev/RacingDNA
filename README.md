@@ -2,11 +2,68 @@
 
 Analisi dello stile di guida in Formula 1 utilizzando reti neurali (VAE/AutoEncoder) per clusterizzare i dati telemetrici delle curve.
 
+## Il Progetto
+
+Il cuore del progetto consiste nell'analizzare le telemetrie di Formula 1 per identificare e classificare lo stile di guida dei piloti in curva. Il flusso di lavoro è strutturato come segue:
+
+1.  **Estrazione Curve** (`src/analysis/CurveDetector.py`):
+    Le telemetrie grezze vengono analizzate per estrarre i segmenti relativi alle curve. Questo avviene utilizzando:
+    -   **Bound spaziali**: Definizione di un'area di interesse attorno all'apice della curva basata sulla mappa del circuito (`corners.json`).
+    -   **Finestre e Smoothing**: Applicazione di una *moving average* sull'accelerazione laterale (`acc_y`) per ridurre il rumore.
+    -   **Thresholding con Isteresi**: L'ingresso in curva è rilevato quando la forza G supera una soglia (`ACC_ENTER_THR`, default 3.0 G), mentre l'uscita avviene quando scende sotto una soglia inferiore (`ACC_EXIT_THR`, default 2.5 G), garantendo stabilità nella rilevazione.
+
+2.  **Costruzione e Normalizzazione Dataset** (`src/analysis/dataset_normalization.py`):
+    Le curve estratte vengono raccolte in un dataset. Viene applicata una **Z-score normalization** (sottrazione della media e divisione per la deviazione standard) calcolata sull'intero dataset per rendere i dati omogenei e adatti all'addestramento della rete neurale.
+
+3.  **Modellazione con VAE** (`src/models/VAE.py`, `src/models/AutoEncoder.py`):
+    Una rete neurale di tipo **VAE (Variational AutoEncoder)** (o AutoEncoder standard) viene addestrata sul dataset normalizzato. Il VAE impara a comprimere i dati complessi della curva (velocità, frenata, accelerazione, traiettoria) in una rappresentazione compatta chiamata **spazio latente**.
+
+4.  **Clustering e Stile di Guida** (`src/scripts/train.py`):
+    Lo spazio latente generato dall'Encoder viene suddiviso in **4 cluster** utilizzando l'algoritmo **K-Means**.  questi cluster rappresentano diversi stile di guida (es. aggressivo , gestione, costante, ecc.), permettendo di etichettare automaticamente il comportamento del pilota in ogni curva.
+
+### Input e Output per Script
+
+Di seguito i dettagli degli input e output specifici per ogni script principale del progetto.
+
+#### 1. `src/scripts/train.py` (Training e Clustering)
+*   **Input**:
+    *   **Dataset Normalizzato**: File `.npz` contenente le curve processate (scaricabile automaticamente da Hugging Face).
+    *   **Configurazione**: Parametri definiti in `TrainConfig` (es. `latent_dim`, `num_clusters`, `epochs`).
+    *   **Pesi Pre-addestrati** (opzionale): File `.pth` se si sceglie di non riaddestrare il modello.
+    *   **Centroidi** (opzionale): File `.npy` se si vuole caricare una clusterizzazione esistente.
+*   **Output**:
+    *   **Modello Addestrato**: File dei pesi `.pth` (se `train_model = True`).
+    *   **Centroidi K-Means**: File `.npy` salvato dopo il clustering.
+    *   **Visualizzazioni**: Grafici 2D/3D dello spazio latente e dei cluster.
+    *   **Statistiche Cluster**: Stampa a console della distribuzione e caratteristiche dei cluster.
+
+#### 2. `src/scripts/evaluate.py` (Valutazione Telemetria)
+*   **Input**:
+    *   **Telemetria Grezza**: File `.json` di una sessione (es. `1_tel.json`).
+    *   **Mappa Curve**: File `corners.json` relativo al circuito.
+    *   **Modello**: Pesi del VAE/AutoEncoder (`.pth`).
+    *   **Dataset Normalizzato**: Necessario per caricare le statistiche (media/std) usate per la normalizzazione.
+    *   **Centroidi**: File `.npy` per assegnare i cluster.
+*   **Output**:
+    *   **Classificazione**: Stampa a console della sequenza curva-per-curva con il cluster assegnato e lo stile di guida predominante.
+    *   **Analisi**: Percentuali di utilizzo dei vari stili di guida nella sessione.
+
+#### 3. `src/analysis/curve_visualizer.py` (Visualizzazione Curve)
+*   **Input**:
+    *   **Telemetria Grezza**: File `.json` della sessione.
+    *   **Mappa Curve**: File `corners.json` del circuito.
+*   **Output**:
+    *   **Grafici Segnali**: Plot dei canali telemetrici (Accelerazione Laterale, Freno, Acceleratore) per ogni curva rilevata.
+    *   **Traiettorie**: Visualizzazione 2D della traiettoria percorsa in ogni curva rispetto al tracciato.
+    *   **Debug**: Verifica visiva della correttezza dei bound e del rilevamento curve.
+
 ## Installazione
+
+**IDE utilizzato per lo sviluppo**: Visual Studio Code
 
 ```bash
 # 1. Clona il repository
-git clone https://github.com/FlorindoDev/RacingDNA
+git clone https://github.com/FlorindoDev/RacingDNA.git
 cd RacingDNA
 
 # 2. Crea ambiente virtuale (consigliato)
@@ -46,11 +103,21 @@ Lo script `src/scripts/train.py` è il cuore del progetto e gestisce diverse fas
 4.  **Visualizzazione**: Genera grafici 2D/3D dello spazio latente e dei cluster.
 
 > [!IMPORTANT]
-> **Nota sui Pesi Pre-addestrati**
-> Per ottenere risultati coerenti utilizzando i pesi inclusi (`src/models/weights/VAE_32z_weights.pth`) e i centroidi (`src/models/weights/kmeans_centroids.npy`), è **fondamentale** utilizzare il **dataset normalizzato** specifico disponibile su Hugging Face:
+> **Nota sul Download Automatico**:
+> Il codice include già dei flag (`download_from_hf = True`) nei file di configurazione (`train.py`, `evaluate.py`) attivati di default. Questo significa che avviando gli script, il dataset **corretto e normalizzato** verrà scaricato automaticamente da Hugging Face, garantendo la totale compatibilità con i pesi forniti.
+>
+> **Nota sui Pesi Pre-addestrati**:
+> Se si decidesse di non usare il download automatico, per ottenere risultati coerenti utilizzando i pesi inclusi (`src/models/weights/VAE_32z_weights.pth`) e i centroidi (`src/models/weights/kmeans_centroids.npy`), è **fondamentale** utilizzare manualmente il dataset specifico disponibile qui:
 > [**f1_corner_telemetry_2024_2025/tree/main**](https://huggingface.co/datasets/FlorindoDev/f1_corner_telemetry_2024_2025/tree/main).
 >
 > L'uso di un dataset diverso o ri-normalizzato localmente renderà i pesi e i centroidi non validi.
+>
+> **Significato dei Cluster (Configurazione Default)**:
+> Utilizzando i pesi e i centroidi inclusi, i 4 cluster identificati hanno il seguente significato:
+> - **Cluster 0**: Mantiene un passo veloce.
+> - **Cluster 1**: Gestione (Saving).
+> - **Cluster 2**: Spinge (Pushing).
+> - **Cluster 3**: Mantiene un passo, ma lento.
 
 **Cosa puoi fare**:
 - **Configurare i percorsi**: Modifica `dataset_path`, `load_weights_path` ecc. in `TrainConfig`.
