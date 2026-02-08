@@ -32,8 +32,8 @@ class EvaluateConfig:
     latent_dim: int = 32
     
     # ----- Hugging Face -----
-    download_from_hf: bool = False  # True = download normalized dataset from HF
-    download_raw_from_hf: bool = False  # True = download raw telemetry from HF
+    download_from_hf: bool = True  # True = download normalized dataset from HF
+    download_raw_from_hf: bool = True  # True = download raw telemetry from HF
     raw_data_subfolder: str = "2025-main"  # Subfolder to download (2024-main or 2025-main)
     
     # ----- Clustering -----
@@ -167,7 +167,8 @@ def main(config: EvaluateConfig = CONFIG):
     dataset_path = config.dataset_path
     if config.download_from_hf:
         print("Downloading dataset from Hugging Face...")
-        dataset_path = download_dataset_from_hf(filename=config.dataset_path)
+        fpath, fname = os.path.split(config.dataset_path)
+        dataset_path = download_dataset_from_hf(filename=fname, filepath=fpath)
     data, _, mean, std, _ = load_normalized_data(dataset_path)
     
     # 2. Load model

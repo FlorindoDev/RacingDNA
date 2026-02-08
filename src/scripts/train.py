@@ -28,7 +28,7 @@ class TrainConfig:
     centroids_path: str = "src/models/weights/kmeans_centroids.npy"
     
     # ----- Hugging Face -----
-    download_from_hf: bool = False     # True = download dataset from HF
+    download_from_hf: bool = True     # True = download dataset from HF
     
     # ----- Model -----
     use_vae: bool = True              # True = VAE, False = AutoEncoder
@@ -376,7 +376,8 @@ def main(config: TrainConfig = CONFIG):
     dataset_path = config.dataset_path
     if config.download_from_hf:
         print("\n[0/7] Downloading dataset from Hugging Face...")
-        dataset_path = download_dataset_from_hf(filename=config.dataset_path)
+        fpath, fname = os.path.split(config.dataset_path)
+        dataset_path = download_dataset_from_hf(filename=fname, filepath=fpath)
     
     # Load and split dataset
     print("\n[1/7] Loading and splitting dataset...")

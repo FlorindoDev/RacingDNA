@@ -15,7 +15,7 @@ class VisualizerConfig:
     corners_path: str = "data/2025-main/Italian Grand Prix/Race/corners.json"
     
     # ----- Hugging Face -----
-    download_from_hf: bool = False  # True = download raw telemetry from HF
+    download_from_hf: bool = True  # True = download raw telemetry from HF
     raw_data_subfolder: str = "2025-main"  # Subfolder to download (2024-main or 2025-main)
     
     # ----- Visualization -----

@@ -14,7 +14,8 @@ from dataclasses import dataclass
 # HUGGING FACE DOWNLOAD
 # =============================================================================
 HF_REPO_ID = "FlorindoDev/f1_corner_telemetry_2024_2025"
-HF_DEFAULT_FILENAME = "data/dataset/normalized_dataset_2024_2025.npz"
+HF_DEFAULT_FILEPATH = "data/dataset"
+HF_DEFAULT_FILENAME = "normalized_dataset_2024_2025.npz"
 
 
 def download_raw_telemetry_from_hf(
@@ -54,12 +55,14 @@ def download_raw_telemetry_from_hf(
     print(f"  Subfolder: {subfolder}")
     
     # Scarica l'intera cartella usando snapshot_download con allow_patterns
+    # Impostiamo max_workers=1 per evitare rate limit (HTTP 429)
     downloaded_path = snapshot_download(
         repo_id=repo_id,
         repo_type="dataset",
         local_dir=local_dir,
         allow_patterns=f"{subfolder}/**",
-        force_download=force_download
+        force_download=force_download,
+        max_workers=1
     )
     
     result_path = os.path.join(downloaded_path, subfolder)
@@ -69,15 +72,17 @@ def download_raw_telemetry_from_hf(
 
 def download_dataset_from_hf(
     filename: str = HF_DEFAULT_FILENAME,
+    filepath: str = HF_DEFAULT_FILEPATH,
     repo_id: str = HF_REPO_ID,
-    local_dir: str = ".",
+    local_dir: str = "data/dataset",
     force_download: bool = False
 ) -> str:
     """
     Scarica il dataset normalizzato da Hugging Face.
     
     Args:
-        filename: Path del file nel repo HF (es. "data/dataset/normalized_dataset_2024_2025.npz")
+        filename: Nome del file (es. "normalized_dataset_2024_2025.npz")
+        filepath: Path della cartella nel repo HF (es. "data/dataset")
         repo_id: ID del repository HF
         local_dir: Directory locale dove salvare il file
         force_download: Se True, riscarica anche se esiste già
@@ -92,7 +97,9 @@ def download_dataset_from_hf(
             "huggingface_hub non installato. Installa con: pip install huggingface_hub"
         )
     
-    local_path = os.path.join(local_dir, filename)
+    # Costruisci path locale e HF
+    hf_path = f"{filepath}/{filename}"
+    local_path = os.path.join(local_dir, filepath, filename)
     
     # Se esiste già e non forziamo, ritorna il path
     if os.path.exists(local_path) and not force_download:
@@ -101,7 +108,7 @@ def download_dataset_from_hf(
     
     print(f"Scaricando dataset da Hugging Face...")
     print(f"  Repo: {repo_id}")
-    print(f"  File: {filename}")
+    print(f"  File: {hf_path}")
     
     # Scarica il file
     downloaded_path = hf_hub_download(
