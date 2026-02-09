@@ -746,39 +746,42 @@ class Curve:
         ax.axis('off')
         ax.set_aspect('equal')
     
-    def plot_all(self, save_path: Optional[str] = None):
+    def plot_all(self, save_path: Optional[str] = None, show_only_score=False):
         """
         Genera tutti i grafici
         save_path: se specificato, salva i grafici invece di mostrarli
+        show_only_score: se True, genera solo il grafico del pushing score
         """
         if not save_path:
             plt.close('all')
             
         print("Generazione grafici in corso...\n")
         
-        # Grafico 1: G Forces
-        print("1/4 - Analisi Forze G...")
-        fig1 = self.plot_g_forces_map()
-        if save_path:
-            fig1.savefig(f'{save_path}_g_forces.png', dpi=150, bbox_inches='tight')
-            print(f"   ✓ Salvato: {save_path}_g_forces.png")
+        if not show_only_score:
+            # Grafico 1: G Forces
+            print("1/4 - Analisi Forze G...")
+            fig1 = self.plot_g_forces_map()
+            if save_path:
+                fig1.savefig(f'{save_path}_g_forces.png', dpi=150, bbox_inches='tight')
+                print(f"   ✓ Salvato: {save_path}_g_forces.png")
+            
+            # Grafico 2: Driver Inputs
+            print("2/4 - Input del Pilota...")
+            fig2 = self.plot_driver_inputs()
+            if save_path:
+                fig2.savefig(f'{save_path}_inputs.png', dpi=150, bbox_inches='tight')
+                print(f"   ✓ Salvato: {save_path}_inputs.png")
+            
+            # Grafico 3: Tire Management
+            print("3/4 - Gestione Gomme...")
+            fig3 = self.plot_tire_management()
+            if save_path:
+                fig3.savefig(f'{save_path}_tires.png', dpi=150, bbox_inches='tight')
+                print(f"   ✓ Salvato: {save_path}_tires.png")
         
-        # Grafico 2: Driver Inputs
-        print("2/4 - Input del Pilota...")
-        fig2 = self.plot_driver_inputs()
-        if save_path:
-            fig2.savefig(f'{save_path}_inputs.png', dpi=150, bbox_inches='tight')
-            print(f"   ✓ Salvato: {save_path}_inputs.png")
-        
-        # Grafico 3: Tire Management
-        print("3/4 - Gestione Gomme...")
-        fig3 = self.plot_tire_management()
-        if save_path:
-            fig3.savefig(f'{save_path}_tires.png', dpi=150, bbox_inches='tight')
-            print(f"   ✓ Salvato: {save_path}_tires.png")
-        
-        # Grafico 4: Pushing Analysis
-        print("4/4 - Analisi Spinta...")
+        # Grafico 4: Pushing Analysis (Sempre generato o solo questo se flag attivo)
+        step_msg = "4/4" if not show_only_score else "1/1"
+        print(f"{step_msg} - Analisi Spinta...")
         fig4 = self.plot_pushing_analysis()
         if save_path:
             fig4.savefig(f'{save_path}_pushing.png', dpi=150, bbox_inches='tight')
@@ -788,7 +791,11 @@ class Curve:
         
         if not save_path:
             plt.show()
-            input("\n[INVIO per continuare...]")
+            # Se stiamo mostrando solo lo score, magari non serve l'input bloccante se è un loop veloce,
+            # ma per sicurezza lo lasciamo o lo condizioniamo. 
+            # L'utente ha chiesto "solo per stampare lo score", assumiamo voglia vederlo.
+            if not show_only_score:
+                input("\n[INVIO per continuare...]")
             plt.close('all')
         else:
             plt.close('all')

@@ -56,7 +56,7 @@ def main(config: VisualizerConfig = CONFIG):
 
     if config.show_score:
         for curve in curves:
-            curve.plot_pushing_analysis()
+            curve.plot_all(show_only_score=config.show_score)
     
     print("\n" + "=" * 60)
     print("Done!")
