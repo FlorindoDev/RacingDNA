@@ -13,9 +13,9 @@ The core of the project is to analyze Formula 1 telemetry to identify and classi
     -   **Hysteresis Thresholding**: Corner entry is detected when G-force exceeds a threshold (`ACC_ENTER_THR`, default 3.0 G), while exit occurs when it drops below a lower threshold (`ACC_EXIT_THR`, default 2.5 G), ensuring detection stability.
     -   **Tire Analysis**: To extract compound and tire life information, the `laptimes.json` file must be present in the same folder as the telemetry.
 
-    > [!IMPORTANT]
-    > **Key Requirement for Tire Analysis**:
-    > For the script to correctly extract tire **compound** and **life**, it is **mandatory** that the `laptimes.json` file be present in the **same folder** as the telemetry file (e.g. `1_tel.json`). Without this file, tire information **will not be available**.
+> [!IMPORTANT]
+> **Key Requirement for Tire Analysis**:
+> For the script to correctly extract tire **compound** and **life**, it is **mandatory** that the `laptimes.json` file be present in the **same folder** as the telemetry file (e.g. `1_tel.json`). Without this file, tire information **will not be available**.
 
 2.  **Dataset Construction and Normalization** (`src/analysis/dataset_normalization.py`):
     Extracted corners are collected into a dataset. A **Z-score normalization** (subtracting the mean and dividing by the standard deviation) calculated on the entire dataset is applied to make the data homogeneous and suitable for neural network training.
@@ -216,9 +216,9 @@ Il cuore del progetto consiste nell'analizzare le telemetrie di Formula 1 per id
     -   **Thresholding con Isteresi**: L'ingresso in curva è rilevato quando la forza G supera una soglia (`ACC_ENTER_THR`, default 3.0 G), mentre l'uscita avviene quando scende sotto una soglia inferiore (`ACC_EXIT_THR`, default 2.5 G), garantendo stabilità nella rilevazione.
     -   **Analisi Gomme**: Per estrarre informazioni su mescola e vita degli pneumatici, è necessario che il file `laptimes.json` sia presente nella stessa cartella della telemetria.
 
-    > [!IMPORTANT]
-    > **Requisito Fondamentale per Analisi Gomme**:
-    > Per far sì che lo script estragga correttamente la **mescola** e la **vita** degli pneumatici, è **obbligatorio** che il file `laptimes.json` sia presente nella **stessa cartella** del file di telemetria (es. `1_tel.json`). Senza questo file, le informazioni sulle gomme **non saranno disponibili**.
+> [!IMPORTANT]
+> **Requisito Fondamentale per Analisi Gomme**:
+> Per far sì che lo script estragga correttamente la **mescola** e la **vita** degli pneumatici, è **obbligatorio** che il file `laptimes.json` sia presente nella **stessa cartella** del file di telemetria (es. `1_tel.json`). Senza questo file, le informazioni sulle gomme **non saranno disponibili**.
 
 2.  **Costruzione e Normalizzazione Dataset** (`src/analysis/dataset_normalization.py`):
     Le curve estratte vengono raccolte in un dataset. Viene applicata una **Z-score normalization** (sottrazione della media e divisione per la deviazione standard) calcolata sull'intero dataset per rendere i dati omogenei e adatti all'addestramento della rete neurale.
