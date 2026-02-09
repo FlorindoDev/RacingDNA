@@ -707,7 +707,7 @@ class Curve:
     def _plot_gauge(self, ax, value):
         """Disegna un gauge per il pushing score"""
         # Sfondo gauge
-        theta = np.linspace(0, np.pi, 100)
+        theta = np.linspace(np.pi, 0, 100)
         
         # Arco di sfondo
         ax.plot(np.cos(theta), np.sin(theta), 'lightgray', linewidth=20, solid_capstyle='round')
@@ -722,24 +722,27 @@ class Curve:
         else:
             color = '#e74c3c'  # Rosso
         
-        # Disegna l'arco fino al valore
-        theta_val = np.linspace(0, np.pi * (value/100), 50)
+        # Disegna l'arco fino al valore (da sinistra a destra)
+        theta_val = np.linspace(np.pi, np.pi * (1 - value/100), 50)
         ax.plot(np.cos(theta_val), np.sin(theta_val), color, linewidth=20, solid_capstyle='round')
         
-        # Testo centrale
-        ax.text(0, -0.3, f'{value:.1f}', ha='center', va='center', 
+        # Testo centrale (numero più in alto, scritta più in basso)
+        ax.text(0, -0.25, f'{value:.1f}', ha='center', va='center', 
                 fontsize=48, fontweight='bold', color=color)
-        ax.text(0, -0.5, 'PUSHING SCORE', ha='center', va='center', 
+        ax.text(0, -0.7, 'PUSHING SCORE', ha='center', va='center', 
                 fontsize=14, color='gray')
         
         # Etichette
         ax.text(-1, 0, '0', ha='center', va='center', fontsize=12, fontweight='bold')
         ax.text(1, 0, '100', ha='center', va='center', fontsize=12, fontweight='bold')
-        ax.text(-0.7, 0.7, 'GESTIONE', ha='center', va='center', fontsize=10, color='#2ecc71')
-        ax.text(0.7, 0.7, 'SPINTA', ha='center', va='center', fontsize=10, color='#e74c3c')
+        
+        # Etichette Spinta/Gestione fuori dal cerchio
+        # Posizionate leggermente sopra e esterne
+        ax.text(-1.5, 0.6, 'GESTIONE', ha='center', va='center', fontsize=10, color='#2ecc71', fontweight='bold')
+        ax.text(1.5, 0.6, 'SPINTA', ha='center', va='center', fontsize=10, color='#e74c3c', fontweight='bold')
         
         ax.set_xlim(-1.5, 1.5)
-        ax.set_ylim(-0.7, 1.2)
+        ax.set_ylim(-0.8, 1.3)
         ax.axis('off')
         ax.set_aspect('equal')
     
