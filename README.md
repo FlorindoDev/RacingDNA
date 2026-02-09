@@ -67,6 +67,7 @@ Below are the details of specific inputs and outputs for each main project scrip
 ## Installation
 
 **IDE used for development**: Visual Studio Code
+**Python version**: 3.13.3
 
 ```bash
 # 1. Clone the repository
@@ -269,6 +270,7 @@ Di seguito i dettagli degli input e output specifici per ogni script principale 
 ## Installazione
 
 **IDE utilizzato per lo sviluppo**: Visual Studio Code
+**Versione Python**: 3.13.3
 
 ```bash
 # 1. Clona il repository
