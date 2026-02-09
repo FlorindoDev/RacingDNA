@@ -11,8 +11,8 @@ class VisualizerConfig:
     """Configuration for curve visualization."""
     
     # ----- Paths -----
-    telemetry_path: str = "data/2025-main/Australian Grand Prix/Qualifying/NOR/19_tel.json"
-    corners_path: str = "data/2025-main/Australian Grand Prix/Race/corners.json"
+    telemetry_path: str = "data/2025-main/Italian Grand Prix/Qualifying/LEC/1_tel.json"
+    corners_path: str = "data/2025-main/Italian Grand Prix/Race/corners.json"
     
     # ----- Hugging Face -----
     download_from_hf: bool = True  # True = download raw telemetry from HF
@@ -20,7 +20,7 @@ class VisualizerConfig:
     
     # ----- Visualization -----
     show_track: bool = False    # Show track overview with curves
-    show_score: bool = False     # Show pushing score
+    show_score: bool = False    # Show pushing score
 
 
 CONFIG = VisualizerConfig()
