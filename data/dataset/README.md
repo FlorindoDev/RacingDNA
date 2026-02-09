@@ -1,5 +1,8 @@
 # Readme Dataset
 
+> [!TIP]
+> This dataset is used in [RacingDNA](https://github.com/FlorindoDev/RacingDNA).
+
 > [!NOTE]
 > **Dataset Overview**
 > This repository includes:
@@ -112,6 +115,9 @@ The result is saved in an `.npz` file containing:
 ---
 
 # Readme Dataset (Italiano)
+
+> [!TIP]
+> Questo dataset è utilizzato in [RacingDNA](https://github.com/FlorindoDev/RacingDNA).
 
 > [!NOTE]
 > **Dataset Overview**
