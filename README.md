@@ -101,6 +101,10 @@ For details on the `.csv` file structure, corner extraction logic, padding, and 
 
 The project offers ready-to-use scripts for model training and telemetry evaluation.
 
+> [!TIP]
+> **Ready to Run**:
+> All three scripts are configured to work **immediately** without any modification. Just run the command, and the code will automatically handle data downloading (from Hugging Face), model loading, and execution using default parameters.
+
 ### 1. Training and Clustering
 
 The `src/scripts/train.py` script is the heart of the project and manages several phases:
@@ -304,6 +308,10 @@ Per dettagli sulla struttura del file `.csv`, la logica di estrazione delle curv
 ## Utilizzo
 
 Il progetto offre script pronti all'uso per il training del modello e la valutazione della telemetria.
+
+> [!TIP]
+> **Pronto all'Uso**:
+> Tutti e tre gli script sono configurati per funzionare **immediatamente** senza alcuna modifica. Basta lanciare il comando e il codice gestirà automaticamente il download dei dati (da Hugging Face), il caricamento del modello e l'esecuzione utilizzando i parametri di default.
 
 ### 1. Training e Clustering
 
