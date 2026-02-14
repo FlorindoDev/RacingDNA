@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>F1 Tempo | Telemetry Analysis</title>
+    <meta name="description" content="Explore and compare Formula 1 lap times and telemetry using F1 Tempo!">
+    <link rel="stylesheet" href="style.css">
+    <!-- Chart.js via CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Header / Navigation -->
+        <header class="main-header">
+            <div class="logo">
+                <span class="tempo-text">Racing</span> <span class="f1-logo">DNA</span>
+            </div>
+            <nav class="main-nav">
+                <a href="#" class="active">Telemetry</a>
+                <a href="#">Analysis</a>
+                <a href="#">About</a>
+            </nav>
+        </header>
+
+        <!-- Session Controls -->
+        <section class="controls-bar">
+            <div class="control-group">
+                <label for="year-select">Year</label>
+                <select id="year-select">
+                    <option value="2024" selected>2024</option>
+                    <option value="2023">2023</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="race-select">Grand Prix</label>
+                <select id="race-select">
+                    <!-- Populated by JS -->
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="session-select">Session</label>
+                <select id="session-select">
+                    <option value="Race">Race</option>
+                    <option value="Qualifying">Qualifying</option>
+                    <option value="Practice 1">Practice 1</option>
+                    <option value="Practice 2">Practice 2</option>
+                    <option value="Practice 3">Practice 3</option>
+                    <option value="Sprint">Sprint</option>
+                    <option value="Sprint Qualifying">Sprint Qualifying</option>
+                </select>
+            </div>
+            <button id="load-data-btn" class="primary-btn">
+                <span class="btn-text">Load Session</span>
+                <span class="btn-loader" style="display:none;"></span>
+            </button>
+            <div class="session-info" id="session-info"></div>
+        </section>
+
+        <!-- Main Dashboard -->
+        <main class="dashboard">
+            <!-- Sidebar: Driver Selection -->
+            <aside class="driver-sidebar">
+                <h3>Drivers</h3>
+                <div class="driver-list" id="driver-list">
+                    <!-- Populated by JS -->
+                </div>
+            </aside>
+
+            <!-- Chart Area -->
+            <section class="charts-container">
+                <!-- Loading Overlay -->
+                <div class="loading-overlay" id="loading-overlay" style="display: none;">
+                    <div class="spinner"></div>
+                    <p>Loading telemetry data...</p>
+                </div>
+
+                <!-- Lap Analysis Chart -->
+                <div class="chart-wrapper lap-chart-wrapper">
+                    <div class="chart-header">
+                        <h2>Lap Analysis</h2>
+                        <div class="chart-legend" id="lap-legend"></div>
+                    </div>
+                    <div class="chart-canvas-container">
+                        <canvas id="lapChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Lap Selector Bar -->
+                <div class="lap-selector-bar" id="lap-selector-bar">
+                    <label for="lap-select">Telemetry for Lap:</label>
+                    <select id="lap-select">
+                        <option value="fastest">Fastest Lap</option>
+                        <!-- Populated by JS -->
+                    </select>
+                    <span class="selected-lap-info" id="selected-lap-info"></span>
+                </div>
+
+                <!-- Speed Chart -->
+                <div class="chart-wrapper telemetry-chart-wrapper">
+                    <div class="chart-header">
+                        <h2>Speed (km/h)</h2>
+                    </div>
+                    <div class="chart-canvas-container">
+                        <canvas id="speedChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Throttle / Brake / Gear Row -->
+                <div class="chart-split">
+                    <div class="chart-wrapper">
+                        <div class="chart-header">
+                            <h2>Throttle</h2>
+                        </div>
+                        <div class="chart-canvas-container">
+                            <canvas id="throttleChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-wrapper">
+                        <div class="chart-header">
+                            <h2>Brake</h2>
+                        </div>
+                        <div class="chart-canvas-container">
+                            <canvas id="brakeChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-wrapper">
+                        <div class="chart-header">
+                            <h2>Gear</h2>
+                        </div>
+                        <div class="chart-canvas-container">
+                            <canvas id="gearChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
