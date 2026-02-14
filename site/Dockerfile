@@ -25,4 +25,4 @@ EXPOSE 5050
 ENV PYTHONUNBUFFERED=1
 
 # Command to run the application using Gunicorn (from /app/site)
-CMD ["gunicorn", "--bind", "0.0.0.0:5050", "--workers", "4", "--threads", "2", "api_server:app"]
+CMD ["sh", "-c", "python init_dataset.py && gunicorn --bind 0.0.0.0:5050 --workers 4 --threads 2 api_server:app"]
