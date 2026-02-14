@@ -42,17 +42,6 @@ CENTROIDS_PATH = os.path.join(PROJECT_ROOT, 'src', 'models', 'weights',
 _analysis_cache: dict = {}
 
 
-def _get_analysis_resources():
-    """Load VAE model, dataset stats and KMeans centroids (once)."""
-    if 'model' in _analysis_cache:
-        return _analysis_cache
-
-    import torch
-    from sklearn.cluster import KMeans
-    from src.analysis.dataset_normalization import load_normalized_data
-    from src.models.VAE import VAE
-
-
 def ensure_dataset_ready():
     """
     Ensure the normalized dataset exists locally.
@@ -64,9 +53,11 @@ def ensure_dataset_ready():
     print(f"📉 Dataset not found at {DATASET_PATH}. Attempting download...")
     try:
         from src.models.dataset_loader import download_dataset_from_hf
+        # Ensure we download to the correct location relative to project root
         download_dataset_from_hf(
             filename="normalized_dataset_2024_2025.npz",
-            filepath="data/dataset"
+            filepath="data/dataset",
+            local_dir=PROJECT_ROOT
         )
         return True
     except Exception as e:
@@ -75,11 +66,25 @@ def ensure_dataset_ready():
         return False
 
 
+def _get_analysis_resources():
+    """Load VAE model, dataset stats and KMeans centroids (once)."""
+    if 'model' in _analysis_cache:
+        return _analysis_cache
+
+    import torch
+    from sklearn.cluster import KMeans
+    from src.analysis.dataset_normalization import load_normalized_data
+    from src.models.VAE import VAE
+
     print("📊  Loading analysis resources (first time)…")
     
     # Ensure dataset is ready before loading
     if not ensure_dataset_ready():
         print("⚠️ Warning: Dataset could not be loaded. Analysis might fail.")
+
+    if not os.path.exists(DATASET_PATH):
+         print("❌ Dataset file missing even after check.")
+         return _analysis_cache # Return empty/partial cache to avoid NoneType error, though subsequent steps will fail.
 
     data, mask, mean, std, columns = load_normalized_data(DATASET_PATH)
 

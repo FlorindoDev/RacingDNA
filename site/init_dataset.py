@@ -13,8 +13,8 @@ try:
     from src.models.dataset_loader import download_dataset_from_hf
     download_dataset_from_hf(
         filename="normalized_dataset_2024_2025.npz",
-        filepath="/app/data/dataset",
-        local_dir="/app/data/dataset"
+        filepath="data/dataset",
+        local_dir="/app"
     )
     print("Dataset initialization complete.")
 except Exception as e:
