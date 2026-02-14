@@ -50,18 +50,18 @@ def ensure_dataset_ready():
     if os.path.exists(DATASET_PATH):
         return True
 
-    print(f"📉 Dataset not found at {DATASET_PATH}. Attempting download...")
+    print(f"Dataset not found at {DATASET_PATH}. Attempting download...")
     try:
         from src.models.dataset_loader import download_dataset_from_hf
         # Ensure we download to the correct location relative to project root
         download_dataset_from_hf(
             filename="normalized_dataset_2024_2025.npz",
-            filepath="data/dataset",
-            local_dir=PROJECT_ROOT
+            filepath="",
+            local_dir=os.path.join(PROJECT_ROOT, 'data', 'dataset')
         )
         return True
     except Exception as e:
-        print(f"❌ Failed to auto-download dataset: {e}")
+        print(f"Failed to auto-download dataset: {e}")
         traceback.print_exc()
         return False
 
@@ -76,14 +76,14 @@ def _get_analysis_resources():
     from src.analysis.dataset_normalization import load_normalized_data
     from src.models.VAE import VAE
 
-    print("📊  Loading analysis resources (first time)…")
+    print("Loading analysis resources (first time)…")
     
     # Ensure dataset is ready before loading
     if not ensure_dataset_ready():
-        print("⚠️ Warning: Dataset could not be loaded. Analysis might fail.")
+        print("Warning: Dataset could not be loaded. Analysis might fail.")
 
     if not os.path.exists(DATASET_PATH):
-         print("❌ Dataset file missing even after check.")
+         print("Dataset file missing even after check.")
          return _analysis_cache # Return empty/partial cache to avoid NoneType error, though subsequent steps will fail.
 
     data, mask, mean, std, columns = load_normalized_data(DATASET_PATH)
@@ -100,7 +100,7 @@ def _get_analysis_resources():
     _analysis_cache.update(
         model=model, kmeans=kmeans, data=data, mean=mean, std=std
     )
-    print("✅  Analysis resources loaded")
+    print("Analysis resources loaded")
     return _analysis_cache
 
 

@@ -188,22 +188,26 @@ python -m src.analysis.curve_visualizer
 
 The project includes a comprehensive web interface for analyzing telemetry, laps, and comparing drivers.
 
-**Option A: Docker (Recommended)**
-Run the full stack (Back-end + Web Server) in a container.
-
-1.  **Start**:
-    ```bash
-    cd site
-    docker-compose up --build -d
-    ```
-2.  **Access**: Open `http://localhost` in your browser.
-
-**Option B: Local Development**
+**Option A: Local Development**
 1.  **Start**:
     ```bash
     python site/api_server.py
     ```
 2.  **Access**: Open `http://localhost:5050` in your browser.
+
+**Option B: Production Server (Recommended for Stability)**
+1.  **Windows (using Waitress)**:
+    ```powershell
+    pip install waitress
+    cd site
+    waitress-serve --host=0.0.0.0 --port=5050 api_server:app
+    ```
+2.  **Linux/Mac (using Gunicorn)**:
+    ```bash
+    pip install gunicorn
+    cd site
+    gunicorn -w 4 -b 0.0.0.0:5050 api_server:app
+    ```
 
 ## Project Structure
 
@@ -417,22 +421,26 @@ python -m src.analysis.curve_visualizer
 
 Il progetto include un'interfaccia web completa per analizzare telemetrie, giri e confrontare i piloti.
 
-**Opzione A: Docker (Consigliato)**
-Esegui l'intero stack (Backend + Web Server) in un container.
-
-1.  **Avvio**:
-    ```bash
-    cd site
-    docker-compose up --build -d
-    ```
-2.  **Accesso**: Apri `http://localhost` nel browser.
-
-**Opzione B: Sviluppo Locale**
+**Opzione A: Sviluppo Locale**
 1.  **Avvio**:
     ```bash
     python site/api_server.py
     ```
 2.  **Accesso**: Apri `http://localhost:5050` nel browser.
+
+**Opzione B: Server di Produzione (Consigliato per Stabilità)**
+1.  **Windows (usando Waitress)**:
+    ```powershell
+    pip install waitress
+    cd site
+    waitress-serve --host=0.0.0.0 --port=5050 api_server:app
+    ```
+2.  **Linux/Mac (usando Gunicorn)**:
+    ```bash
+    pip install gunicorn
+    cd site
+    gunicorn -w 4 -b 0.0.0.0:5050 api_server:app
+    ```
 
 ## Struttura Progetto
 

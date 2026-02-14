@@ -12,6 +12,11 @@ CACHE_DIR = os.path.join(os.path.dirname(__file__), '..', 'fastf1_cache')
 os.makedirs(CACHE_DIR, exist_ok=True)
 fastf1.Cache.enable_cache(CACHE_DIR)
 
+# ── Dataset Check ────────────────────────────────────────────────
+# Ensure dataset is available when app is imported (e.g. by Gunicorn/Waitress)
+print("Checking dataset availability...")
+ensure_dataset_ready()
+
 # ── Flask app ────────────────────────────────────────────────────
 # Explicitly set static_folder to current directory ('.') and url_path to root ('')
 # This ensures Gunicorn serves style.css and script.js correctly from the same folder.
@@ -210,12 +215,9 @@ def index():
 
 
 if __name__ == '__main__':
-    print("🏎️  RacingDNA API Server starting on http://localhost:5050")
+    print("RacingDNA API Server starting on http://localhost:5050")
     
-    # Ensure dataset is available before accepting requests
-    print("⏳ Checking dataset availability...")
-    ensure_dataset_ready()
-
+    # FastF1 cache details
     print("   FastF1 cache:", os.path.abspath(CACHE_DIR))
     app.static_folder = os.path.dirname(__file__)
     app.run(host='0.0.0.0', port=5050, debug=True)
