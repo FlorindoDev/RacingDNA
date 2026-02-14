@@ -58,7 +58,7 @@ def _get_analysis_resources():
             from src.models.dataset_loader import download_dataset_from_hf
             download_dataset_from_hf(
                 filename="normalized_dataset_2024_2025.npz",
-                filepath="data/dataset/"
+                filepath="data/dataset"
             )
         except Exception as e:
             print(f"Failed to auto-download dataset: {e}")
