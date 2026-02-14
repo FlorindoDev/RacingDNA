@@ -177,10 +177,12 @@ def api_telemetry():
 
         telemetry = lap.get_telemetry()
 
+
         # Sample down if too many points (keep ≤ 500 points)
-        if len(telemetry) > 500:
-            step = max(1, len(telemetry) // 500)
-            telemetry = telemetry.iloc[::step].reset_index(drop=True)
+        # if len(telemetry) > 500:
+        #     step = max(1, len(telemetry) // 500)
+        #     telemetry = telemetry.iloc[::step].reset_index(drop=True)
+
 
         data = []
         for _, row in telemetry.iterrows():
