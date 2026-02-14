@@ -56,7 +56,11 @@ def _get_analysis_resources():
     if not os.path.exists(DATASET_PATH):
         try:
             from src.models.dataset_loader import download_dataset_from_hf
-            download_dataset_from_hf(local_dir=PROJECT_ROOT)
+            download_dataset_from_hf(
+                filename="data/dataset/normalized_dataset_2024_2025.npz",
+                filepath="",
+                local_dir=PROJECT_ROOT
+            )
         except Exception as e:
             print(f"Failed to auto-download dataset: {e}")
             traceback.print_exc()
