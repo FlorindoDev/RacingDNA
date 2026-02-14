@@ -7,3 +7,4 @@ requests
 torch
 scikit-learn
 numpy
+huggingface_hub

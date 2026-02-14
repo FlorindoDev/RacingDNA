@@ -58,8 +58,11 @@ def _get_analysis_resources():
             from src.models.dataset_loader import download_dataset_from_hf
             fpath, fname = os.path.split(DATASET_PATH)
             download_dataset_from_hf(filename=fname, filepath=fpath)
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"Failed to auto-download dataset: {e}")
+            traceback.print_exc()
+            # Don't silence it, let it fail so user knows why analysis won't work
+            pass 
 
     print("📊  Loading analysis resources (first time)…")
     data, mask, mean, std, columns = load_normalized_data(DATASET_PATH)
