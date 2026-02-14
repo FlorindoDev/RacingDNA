@@ -52,21 +52,35 @@ def _get_analysis_resources():
     from src.analysis.dataset_normalization import load_normalized_data
     from src.models.VAE import VAE
 
-    # If dataset doesn't exist locally, try downloading
-    if not os.path.exists(DATASET_PATH):
-        try:
-            from src.models.dataset_loader import download_dataset_from_hf
-            download_dataset_from_hf(
-                filename="normalized_dataset_2024_2025.npz",
-                filepath="data/dataset"
-            )
-        except Exception as e:
-            print(f"Failed to auto-download dataset: {e}")
-            traceback.print_exc()
-            # Don't silence it, let it fail so user knows why analysis won't work
-            pass 
+
+def ensure_dataset_ready():
+    """
+    Ensure the normalized dataset exists locally.
+    If not, attempt to download it from Hugging Face.
+    """
+    if os.path.exists(DATASET_PATH):
+        return True
+
+    print(f"📉 Dataset not found at {DATASET_PATH}. Attempting download...")
+    try:
+        from src.models.dataset_loader import download_dataset_from_hf
+        download_dataset_from_hf(
+            filename="normalized_dataset_2024_2025.npz",
+            filepath="data/dataset"
+        )
+        return True
+    except Exception as e:
+        print(f"❌ Failed to auto-download dataset: {e}")
+        traceback.print_exc()
+        return False
+
 
     print("📊  Loading analysis resources (first time)…")
+    
+    # Ensure dataset is ready before loading
+    if not ensure_dataset_ready():
+        print("⚠️ Warning: Dataset could not be loaded. Analysis might fail.")
+
     data, mask, mean, std, columns = load_normalized_data(DATASET_PATH)
 
     model = VAE(data.shape[1], latent_dim=32)

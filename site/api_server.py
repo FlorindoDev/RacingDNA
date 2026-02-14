@@ -5,7 +5,7 @@ import traceback
 import fastf1
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from api_analysis import analysis_bp
+from api_analysis import analysis_bp, ensure_dataset_ready
 
 # ── FastF1 cache setup ──────────────────────────────────────────
 CACHE_DIR = os.path.join(os.path.dirname(__file__), '..', 'fastf1_cache')
@@ -211,6 +211,11 @@ def index():
 
 if __name__ == '__main__':
     print("🏎️  RacingDNA API Server starting on http://localhost:5050")
+    
+    # Ensure dataset is available before accepting requests
+    print("⏳ Checking dataset availability...")
+    ensure_dataset_ready()
+
     print("   FastF1 cache:", os.path.abspath(CACHE_DIR))
     app.static_folder = os.path.dirname(__file__)
     app.run(host='0.0.0.0', port=5050, debug=True)
