@@ -2,6 +2,7 @@
 *.egg-info/
 /data/2024-main
 /data/2025-main
+/data/2023-main
 /.venv
 /fastf1_cache
 .IoT
