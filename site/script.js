@@ -1239,6 +1239,7 @@ async function _populateAnalysisLaps() {
             sel.appendChild(o);
         });
     }
+    sel.disabled = false;
 }
 
 document.getElementById('analysis-driver')?.addEventListener('change', _populateAnalysisLaps);
